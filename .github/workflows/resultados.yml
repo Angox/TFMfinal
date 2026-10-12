@@ -1,0 +1,87 @@
+name: "Informes: generar resultados y volumen"
+
+on:
+  workflow_dispatch:
+    inputs:
+      medir_puertos:
+        description: "Nº de puertos a medir en detalle (0 = solo el tamaño del dataset)"
+        required: false
+        default: "0"
+  workflow_call:
+    inputs:
+      medir_puertos:
+        required: false
+        default: "0"
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  resultados:
+    name: "Capítulo de resultados + perfil Big Data"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v7
+
+      - name: Cargar configuración central (config.env)
+        run: |
+          grep -vE '^[[:space:]]*(#|$)' config.env | tr -d '\r' > /tmp/config.env
+          cat /tmp/config.env >> "$GITHUB_ENV"
+          sed -n 's/^S3_BUCKET_NAME=/TF_VAR_bucket_datos_nombre=/p' /tmp/config.env >> "$GITHUB_ENV"
+          sed -n 's/^AWS_REGION=/TF_VAR_aws_region=/p' /tmp/config.env >> "$GITHUB_ENV"
+          echo "Configuracion central cargada:"; cat /tmp/config.env
+
+      - name: Configurar credenciales de AWS
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Configurar Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.10'
+
+      - name: Instalar dependencias Python
+        run: pip install -r etl/requirements-ci.txt
+
+      - name: Generar capítulo de resultados
+        run: python etl/generar_resultados.py --salida docs/resultados
+
+      - name: Medir volumen de datos
+        run: |
+          if [ "${{ inputs.medir_puertos }}" = "0" ]; then
+            python etl/medir_volumen.py --solo-universo --salida docs/volumen
+          else
+            pip install -r etl/requirements.txt
+            python etl/medir_volumen.py --puertos "${{ inputs.medir_puertos }}" --salida docs/volumen
+          fi
+
+      - name: Publicar informes en el repositorio
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/resultados/ docs/volumen/
+          if git diff --cached --quiet; then
+            echo "Sin cambios en los informes."
+          else
+            git commit -m "docs: regenerar informes de resultados, volumen y costes [skip ci]"
+            for intento in 1 2 3; do
+              if git pull --rebase --autostash origin "$GITHUB_REF_NAME" && git push; then
+                echo "Informe publicado."
+                break
+              fi
+              echo "Push rechazado, reintento $intento de 3..."
+              sleep 7
+            done
+          fi
+
+      - name: Subir informes como artefacto
+        uses: actions/upload-artifact@v7
+        with:
+          name: informes
+          path: docs/

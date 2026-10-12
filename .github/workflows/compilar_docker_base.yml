@@ -1,0 +1,88 @@
+name: "Utilidad: Compilar imagen del ETL y subirla a ECR"
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  compilar-base:
+    name: "Construir y Subir Imagen Base a ECR"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v7
+
+      - name: Cargar configuracion central (config.env)
+        run: |
+          grep -vE '^[[:space:]]*(#|$)' config.env | tr -d '\r' > /tmp/config.env
+          cat /tmp/config.env >> "$GITHUB_ENV"
+          sed -n 's/^S3_BUCKET_NAME=/TF_VAR_bucket_datos_nombre=/p' /tmp/config.env >> "$GITHUB_ENV"
+          sed -n 's/^AWS_REGION=/TF_VAR_aws_region=/p' /tmp/config.env >> "$GITHUB_ENV"
+          echo "Configuracion central cargada:"; cat /tmp/config.env
+
+      - name: Configurar credenciales de AWS
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login en Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Construir imagen Docker
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: tfm-etl-grafos
+          IMAGE_TAG: latest
+        run: |
+          cd etl
+          docker build -t "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" .
+          echo "IMAGEN=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> "$GITHUB_ENV"
+
+      - name: Verificar que la imagen y el script de S3 encajan
+        run: |
+          set -euo pipefail
+          DIR_TRABAJO=$(docker image inspect --format '{{.Config.WorkingDir}}' "$IMAGEN")
+          DIR_TRABAJO=${DIR_TRABAJO:-/}
+          echo "Directorio de trabajo de la imagen: $DIR_TRABAJO"
+
+          docker run --rm \
+            -v "$PWD/etl/etl_procesamiento.py:$DIR_TRABAJO/etl_procesamiento.py:ro" \
+            -e S3_BUCKET_NAME="${{ env.S3_BUCKET_NAME }}" \
+            -e AWS_REGION="${{ env.AWS_REGION }}" \
+            --entrypoint python \
+            "$IMAGEN" -c "
+          import importlib, sys
+          importlib.import_module('etl_procesamiento')
+          import calculos
+          faltan = [n for n in (
+              'normalizar_tonelaje', 'pendiente_entre_nodos', 'penalizacion_topografica',
+              'proyectar_local', 'vulnerabilidad_normalizada', 'indice_compuesto',
+              'fuerza_gravitatoria', 'saturacion_con_shock', 'estres_con_aislamiento',
+          ) if not hasattr(calculos, n)]
+          if faltan:
+              print('Faltan en calculos.py de la imagen: ' + ', '.join(faltan))
+              sys.exit(1)
+          import portwatch
+          perfil = portwatch.resumir_serie(
+              [{'date': 'd%d' % i, 'import_container': 1000} for i in range(500)],
+              dias_ventana=100)
+          assert 'frecuencia_excedencia' in perfil, 'portwatch.py de la imagen esta obsoleto'
+          print('OK: la imagen y el script de S3 encajan.')
+          "
+
+      - name: Subir imagen a ECR
+        run: docker push "$IMAGEN"
+
+      - name: Resumen
+        run: |
+          {
+            echo "### Imagen del ETL publicada"
+            echo
+            echo "\`$IMAGEN\`"
+            echo
+            echo "Módulos incluidos: calculos, portwatch, grafos y config_aws."
+          } >> "$GITHUB_STEP_SUMMARY"

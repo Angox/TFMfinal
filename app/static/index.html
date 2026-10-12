@@ -1,0 +1,970 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard TFM - Inteligencia Portuaria</title>
+
+    <script src="https://unpkg.com/deck.gl@latest/dist.min.js"></script>
+    <script src="https://unpkg.com/maplibre-gl@3.0.0/dist/maplibre-gl.js"></script>
+    <script src="https://unpkg.com/pmtiles@3.0.6/dist/pmtiles.js"></script>
+    <link href="https://unpkg.com/maplibre-gl@3.0.0/dist/maplibre-gl.css" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            margin: 0; padding: 0; font-family: 'Inter', sans-serif;
+            background-color: #0f172a; color: #f8fafc; overflow: hidden;
+        }
+        #map {
+            height: 100vh; width: 100vw; z-index: 1; position: absolute; top: 0; left: 0;
+        }
+        #shock-slider::-webkit-slider-thumb { background: #f59e0b; }
+        #shock-slider::-webkit-slider-runnable-track { background: #333; }
+
+        .soc-panel { background: #0a0a0a; border: 1px solid #333; color: #e2e8f0; box-shadow: 0 -5px 20px rgba(0, 0, 0, 0.8); }
+
+        .bottom-dashboard {
+            position: absolute; bottom: 0; left: 0; right: 0; height: 35vh;
+            z-index: 1000; display: none; flex-direction: row; padding: 10px; gap: 10px; overflow-x: auto; overflow-y: hidden; font-size: 0.85rem;
+        }
+
+        .dash-module { background: #111; border: 1px solid #222; display: flex; flex-direction: column; padding: 12px; min-width: 280px; flex: 1; }
+        .dash-module-header { font-size: 0.75rem; text-transform: uppercase; color: #4ade80; border-bottom: 1px solid #333; padding-bottom: 5px; margin-bottom: 10px; font-weight: 700; letter-spacing: 1px; display: flex; justify-content: space-between; }
+
+        .kpi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .kpi-card { background: #1a1a1a; border-left: 2px solid #333; padding: 8px; display: flex; flex-direction: column; }
+        .kpi-label { font-size: 0.65rem; color: #888; text-transform: uppercase; }
+        .kpi-value { font-size: 1.1rem; font-family: monospace; font-weight: bold; color: #fff; }
+        .kpi-value.accent { color: #38bdf8; } .kpi-value.warning { color: #fbbf24; } .kpi-value.danger { color: #f87171; }
+
+        .map-controls { position: absolute; top: 20px; right: 20px; z-index: 1000; display: flex; flex-direction: column; gap: 5px; }
+        .map-btn { background: #111; border: 1px solid #333; color: #fff; width: 40px; height: 40px; cursor: pointer; font-weight: bold; font-size: 1.2rem; transition: all 0.2s; }
+        .map-btn:hover { background: #333; } .map-btn.active { border-color: #38bdf8; color: #38bdf8; }
+
+        .badge-custom { padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.5px; text-align: center; }
+        .badge-danger { background: rgba(239, 68, 68, 0.2); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.5); }
+        .badge-warning { background: rgba(245, 158, 11, 0.2); color: #fcd34d; border: 1px solid rgba(245, 158, 11, 0.5); }
+        .badge-success { background: rgba(34, 197, 94, 0.2); color: #86efac; border: 1px solid rgba(34, 197, 94, 0.5); }
+
+        .detail-row { display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; padding: 8px 0; border-bottom: 1px dashed rgba(255,255,255,0.05); }
+        .detail-label { color: #94a3b8; } .detail-value { color: #e2e8f0; font-weight: 500; text-align: right; max-width: 60%; line-height: 1.3;}
+
+        .btn-wow { background: linear-gradient(135deg, #3b82f6, #8b5cf6); border: none; color: white; font-weight: bold; width: 100%; padding: 12px; border-radius: 8px; margin-top: 5px; box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4); transition: transform 0.2s, box-shadow 0.2s; display: none; }
+        .btn-wow:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(139, 92, 246, 0.6); color: white; }
+
+        .chat-history { flex-grow: 1; min-height: 150px; max-height: 200px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; padding-right: 5px; font-size: 0.85rem; }
+        .msg-user { align-self: flex-end; background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.4); padding: 6px 10px; border-radius: 10px 10px 0 10px; max-width: 85%; }
+        .msg-ia { align-self: flex-start; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.2); padding: 6px 10px; border-radius: 10px 10px 10px 0; max-width: 90%; color: #e2e8f0; line-height: 1.4; white-space: pre-wrap; }
+        .typing-indicator { font-style: italic; color: #94a3b8; font-size: 0.8rem; align-self: flex-start; }
+
+        .auth-panel { position: absolute; top: 20px; left: 20px; z-index: 1000; width: auto; min-width: 280px; padding: 15px 20px; display: flex; align-items: center; gap: 15px; }
+        .auth-info { display: flex; flex-direction: column; flex-grow: 1; }
+    </style>
+</head>
+<body>
+
+<div class="auth-panel soc-panel" id="auth-box" style="border-radius: 8px; border-top: none; border-left: none;">
+    <div class="auth-info">
+        <span id="user-status" style="font-size: 0.8rem; color: #94a3b8; font-weight: 600;">🔴 Sin Autenticar</span>
+    </div>
+    <button id="btn-login" class="btn btn-outline-info btn-sm">Iniciar Sesión</button>
+</div>
+
+<div class="map-controls">
+    <button class="map-btn" id="btn-zoom-in" title="Acercar">+</button>
+    <button class="map-btn" id="btn-zoom-out" title="Alejar">-</button>
+    <button class="map-btn" id="btn-pitch" title="Alternar 2D/3D">3D</button>
+    <button class="map-btn" id="btn-mapa-toggle" title="Vista Satélite">🌍</button>
+    <button class="map-btn" id="btn-modo-corte" title="Modo Corte (Fallo Crítico)" style="color: #ef4444; border-color: #ef4444;">🔪</button>
+    <button class="map-btn" id="btn-reset-corte" title="Restaurar Red (Limpiar Cortes)" style="display: none;">🔄</button>
+</div>
+
+<div class="bottom-dashboard soc-panel" id="detalle-box">
+
+    <div class="dash-module" style="min-width: 320px;">
+        <div class="dash-module-header">
+            <span id="p-nombre">Seleccione Puerto</span>
+            <span id="p-riesgo" class="badge-custom badge-success">--</span>
+        </div>
+        <div class="kpi-grid">
+            <div class="kpi-card"><span class="kpi-label">Vol. Demanda</span><span class="kpi-value accent" id="p-teus">--</span></div>
+            <div class="kpi-card"><span class="kpi-label">Estrés Físico</span><span class="kpi-value danger" id="p-estres">--</span></div>
+            <div class="kpi-card"><span class="kpi-label">Dep. Camiones</span><span class="kpi-value" id="p-camiones">--%</span></div>
+            <div class="kpi-card"><span class="kpi-label">Riesgo País</span><span class="kpi-value warning" id="p-macro">--</span></div>
+        </div>
+        <button id="btn-rutas" class="btn-wow mt-2" style="font-size: 0.8rem;">Analizar Red (Topología) ⚡</button>
+    </div>
+
+    <div class="dash-module">
+        <div class="dash-module-header">Perfil Logístico</div>
+        <div class="detail-row"><span class="detail-label">Carga Principal</span><span class="detail-value text-warning" id="p-carga">--</span></div>
+        <div class="detail-row"><span class="detail-label">Dependencia (Exp)</span><span class="detail-value" id="p-export">--%</span></div>
+        <div class="detail-row"><span class="detail-label">Vías Estudiadas</span><span class="detail-value" id="p-vias">--</span></div>
+        <div class="detail-row" style="border-top: 1px solid #333; margin-top: 5px; padding-top: 5px;">
+            <span class="detail-label text-danger">Afección Crítica</span>
+            <span class="detail-value text-danger" id="p-industrias" style="font-size: 0.75rem;">--</span>
+        </div>
+    </div>
+
+    <div class="dash-module">
+        <div class="dash-module-header">Vector de Disrupción</div>
+        <label for="shock-slider" class="form-label text-warning mb-0" style="font-size: 0.7rem;">Multiplicador Demanda: <span id="shock-valor" class="text-white">1.0x</span></label>
+        <input type="range" class="form-range mb-2" min="0.5" max="3.0" step="0.1" id="shock-slider" value="1.0">
+        <button id="btn-simular" class="btn btn-warning btn-sm w-100 fw-bold mb-2" style="color: #000; font-size: 0.75rem;">Proyectar Escenario</button>
+
+        <label for="select-clima" class="form-label text-info mb-0" style="font-size: 0.7rem;">Condiciones Meteorológicas <span id="clima-badge"></span></label>
+        <select id="select-clima" class="form-select form-select-sm bg-dark text-white border-secondary shadow-none" style="font-size: 0.75rem;">
+            <option value="auto" selected>Live Data (Satélite)</option>
+            <option value="despejado">Forzar: Despejado</option>
+            <option value="lluvia_torrencial">Forzar: Lluvia Torrencial</option>
+            <option value="nieve">Forzar: Nieve Extrema</option>
+        </select>
+    </div>
+
+    <div class="dash-module" style="flex: 2; min-width: 350px;">
+        <div class="dash-module-header text-info">Terminal IA (Gemini)</div>
+        <div id="chat-history" class="chat-history" style="background: transparent; border: none; padding: 0;">
+            <div class="msg-ia">Sistema inicializado. A la espera de selección de puerto.</div>
+        </div>
+        <div class="input-group input-group-sm mt-1">
+            <input type="text" id="chat-input" class="form-control bg-dark text-white border-secondary" placeholder="Consulta analítica...">
+            <button class="btn btn-info" id="btn-send-chat" style="color: #000;">Ejecutar</button>
+        </div>
+    </div>
+</div>
+<svg id="capa-dibujo" style="position:absolute; top:0; left:0; width:100vw; height:100vh; pointer-events:none; z-index:500;">
+    <polyline id="linea-corte" fill="none" stroke="#ef4444" stroke-width="4" stroke-dasharray="8,4" />
+</svg>
+
+<div id="map"></div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getAuth, signInWithPopup, GoogleAuthProvider, onIdTokenChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyB_W-25THEdPp0-oY0bzN8UEZ3hJQYSdRE",
+        authDomain: "proyecto-tfm-489108.firebaseapp.com",
+        projectId: "proyecto-tfm-489108",
+        storageBucket: "proyecto-tfm-489108.firebasestorage.app",
+        messagingSenderId: "521964291074",
+        appId: "1:521964291074:web:ae5c3b5d3971000a5e131b"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const provider = new GoogleAuthProvider();
+
+    const protocol = new window.pmtiles.Protocol();
+    maplibregl.addProtocol("pmtiles", protocol.tile);
+
+    let URL_PMTILES = null;
+    const CAPA_CARRETERAS_MAPLIBRE = {
+        'id': 'rutas-carreteras-layer',
+        'type': 'line',
+        'source': 'rutas-globales',
+        'source-layer': 'rutas_termicas',
+        'filter': ['!=', ['get', 'tipo_via'], 'rail'],
+        'paint': {
+            'line-color': [
+                'step', ['get', 'trafico'],
+                'rgba(56, 189, 248, 0.4)',
+                15, 'rgba(250, 204, 21, 0.8)',
+                40, 'rgba(245, 158, 11, 1)',
+                80, 'rgba(239, 68, 68, 1)'
+            ],
+            'line-width': [
+                'step', ['get', 'trafico'],
+                1.5,
+                20, 2.5,
+                50, 4
+            ],
+            'line-opacity': 1.0
+        }
+    };
+
+    const CAPA_FERROCARRIL_MAPLIBRE = {
+        'id': 'rutas-ferrocarril-layer',
+        'type': 'line',
+        'source': 'rutas-globales',
+        'source-layer': 'rutas_termicas',
+        'filter': ['==', ['get', 'tipo_via'], 'rail'],
+        'paint': {
+            'line-color': 'rgba(148, 163, 184, 0.9)',
+            'line-width': 2.0,
+            'line-dasharray': [4, 4],
+            'line-opacity': 1.0
+        }
+    };
+
+    let deckgl = null;
+    let estiloOscuroFinal = null;
+    let estiloSateliteFinal = null;
+
+    let currentAuthToken = null;
+    let selectedPuerto = null;
+    let datosPuertosVisibles = [];
+    let geojsonRutasActual = null;
+    let geojsonIndustriasActual = null;
+    let rutasRevision = 0;
+    let datosPuertasReales = [];
+    let socketSimulador = null;
+    let esSatelite = false;
+
+    function escapeHTML(str) { const div = document.createElement('div'); div.textContent = str; return div.innerHTML; }
+
+    let deltaPendiente = null;
+    function aplicarDelta(delta) {
+        if (!geojsonRutasActual || !delta) return false;
+        geojsonRutasActual.features.forEach((feat, i) => {
+            const update = delta[i.toString()];
+
+            feat.properties.cortada = !!(update && update.cortada);
+            if (update && update.desvio !== undefined) feat.properties.desvio = update.desvio;
+            else delete feat.properties.desvio;
+
+            if (feat.properties.tipo_via === 'rail') return;
+            feat.properties.trafico = update ? (update.trafico || 0.0) : 0.0;
+        });
+        return true;
+    }
+
+    function textoDesvio(props) {
+        if (!('desvio' in props)) return '';
+        const texto = props.desvio === null
+            ? 'ruta nueva por el corte'
+            : props.desvio >= 10
+                ? `x${(1 + props.desvio).toFixed(0)} de tráfico por el corte`
+                : `+${(props.desvio * 100).toFixed(0)} % de tráfico por el corte`;
+        return `<br/><span style="color:#f59e0b; font-weight:bold;">↪ ${texto}</span>`;
+    }
+
+    async function inicializarMapa() {
+        try {
+            const respConfig = await fetch('/api/config');
+            URL_PMTILES = (await respConfig.json()).url_pmtiles;
+
+            const res = await fetch('https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json');
+            estiloOscuroFinal = await res.json();
+
+            estiloOscuroFinal.glyphs = "https://orangemug.github.io/font-glyphs/glyphs/{fontstack}/{range}.pbf";
+
+            if (estiloOscuroFinal.layers) {
+                estiloOscuroFinal.layers.forEach(layer => {
+                    if (layer.layout && layer.layout['text-font']) {
+                        layer.layout['text-font'] = ['Roboto Regular'];
+                    }
+                });
+            }
+
+            estiloOscuroFinal.sources['rutas-globales'] = { type: 'vector', url: URL_PMTILES };
+            estiloOscuroFinal.layers.push(CAPA_CARRETERAS_MAPLIBRE, CAPA_FERROCARRIL_MAPLIBRE);
+
+            estiloSateliteFinal = {
+                "version": 8,
+                "glyphs": "https://orangemug.github.io/font-glyphs/glyphs/{fontstack}/{range}.pbf",
+                "sprite": "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/sprite",
+                "sources": {
+                    "esri-satellite": { "type": "raster", "tiles": ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"], "tileSize": 256 },
+                    "rutas-globales": { "type": "vector", "url": URL_PMTILES }
+                },
+                "layers": [
+                    { "id": "satellite-layer", "type": "raster", "source": "esri-satellite", "minzoom": 0, "maxzoom": 19 },
+                    CAPA_CARRETERAS_MAPLIBRE, CAPA_FERROCARRIL_MAPLIBRE
+                ]
+            };
+
+            deckgl = new deck.DeckGL({
+                container: 'map',
+                initialViewState: { longitude: 0, latitude: 30, zoom: 3, pitch: 45, bearing: 0 },
+                controller: true,
+                mapStyle: estiloOscuroFinal,
+                layers: []
+            });
+
+            fetch('/api/mapa-basico')
+                .then(res => res.json())
+                .then(data => {
+                    datosPuertosVisibles = data;
+                    renderizarCapasDeckGL();
+                }).catch(e => console.error("Error API Mapa Básico:", e));
+
+        } catch (error) {
+            console.error("Fallo crítico durante la orquestación del mapa base:", error);
+        }
+    }
+
+    function renderizarCapasDeckGL() {
+        if (!deckgl) return;
+        const capas = [];
+
+        if (datosPuertosVisibles.length > 0) {
+            capas.push(new deck.ScatterplotLayer({
+                id: 'puertos-layer',
+                data: datosPuertosVisibles,
+                pickable: true,
+                opacity: 0.9,
+                stroked: true,
+                filled: true,
+                radiusScale: 1,
+                radiusMinPixels: 8,
+                radiusMaxPixels: 15,
+                lineWidthMinPixels: 2,
+                getPosition: d => [d.lng, d.lat],
+                getFillColor: d => {
+                    if (d.rating_color === "red") return [239, 68, 68];
+                    if (d.rating_color === "yellow") return [250, 204, 21];
+                    return [34, 197, 94];
+                },
+                getLineColor: [255, 255, 255],
+                onClick: ({object}) => { if (object) seleccionarPuerto(object); }
+            }));
+        }
+
+        if (geojsonRutasActual && geojsonRutasActual.features && geojsonRutasActual.features.length > 0) {
+            const rutasVisibles = geojsonRutasActual.features.filter(
+                f => !(f.properties && f.properties.cortada));
+            capas.push(new deck.GeoJsonLayer({
+                id: 'rutas-termicas-layer',
+                data: rutasVisibles,
+                pickable: true,
+                stroked: true,
+                filled: false,
+                lineWidthScale: 1,
+                lineWidthMinPixels: 2,
+                lineWidthMaxPixels: 12,
+                extensions: [new deck.PathStyleExtension({dash: true})],
+                updateTriggers: {
+                    getLineColor: [rutasRevision],
+                    getLineWidth: [rutasRevision],
+                    getDashArray: [rutasRevision]
+                },
+                getLineWidth: d => {
+                    if ('desvio' in d.properties) return 6;
+                    if (d.properties.tipo_via === 'rail') return 4;
+                    const t = d.properties.trafico || 0;
+                    return t > 50 ? 6 : (t > 20 ? 3 : 2);
+                },
+                getDashArray: d => (d.properties.tipo_via === 'rail' ? [6, 4] : [0, 0]),
+                getLineColor: d => {
+                    if (d.properties.cortada) return [0, 0, 0, 255];
+                    const t = d.properties.trafico || 0;
+                    if (d.properties.tipo_via === 'rail' && t < 15) return [148, 163, 184, 255];
+
+                    if (t > 80) return [239, 68, 68, 255];
+                    if (t > 40) return [245, 158, 11, 255];
+                    if (t > 15) return [250, 204, 21, 200];
+                    return [56, 189, 248, 120];
+                }
+            }));
+        }
+
+        if (geojsonIndustriasActual && geojsonIndustriasActual.features && geojsonIndustriasActual.features.length > 0) {
+            capas.push(new deck.GeoJsonLayer({
+                id: 'nodos-industriales-layer',
+                data: geojsonIndustriasActual,
+                pickable: true,
+                stroked: true,
+                filled: true,
+                pointRadiusScale: 1,
+                pointRadiusMinPixels: 4,
+                pointRadiusMaxPixels: 25,
+                getPointRadius: d => Math.sqrt(d.properties.atraccion || 2000) * 0.8,
+                getFillColor: [236, 72, 153, 200],
+                getLineColor: [255, 255, 255, 250],
+                lineWidthMinPixels: 1.5
+            }));
+        }
+
+        if (datosPuertasReales && datosPuertasReales.length > 0) {
+            capas.push(new deck.ScatterplotLayer({
+                id: 'puertas-layer',
+                data: datosPuertasReales,
+                pickable: true,
+                opacity: 1,
+                stroked: true,
+                filled: true,
+                radiusScale: 1,
+                radiusMinPixels: 6,
+                radiusMaxPixels: 12,
+                lineWidthMinPixels: 2,
+                getPosition: d => [d.lng, d.lat],
+                getFillColor: [56, 189, 248, 255],
+                getLineColor: [255, 255, 255],
+                updateTriggers: { getFillColor: [rutasRevision] }
+            }));
+        }
+
+        deckgl.setProps({
+            layers: capas,
+            getTooltip: ({object}) => {
+                if (!object) return null;
+                if (object.id) return { html: `<strong>${object.id}</strong>`, style: {backgroundColor: 'rgba(15, 23, 42, 0.9)', color: 'white', borderRadius: '8px', border: '1px solid #38bdf8'} };
+
+                if (object.properties && object.properties.trafico !== undefined) {
+                    const nombre = object.properties.nombre_via || "Vía sin catalogar";
+                    const peaje = object.properties.peaje === 'yes' ? ' 💰(Peaje)' : '';
+
+                    const icono = object.properties.tipo_via === 'rail' ? '🚂' : '🛣️';
+                    const tipo = object.properties.tipo_via === 'rail' ? 'Vía Férrea' : 'Carretera';
+                    const colorBorde = object.properties.tipo_via === 'rail' ? '#94a3b8' : '#f59e0b';
+
+                    return {
+                        html: `${icono} <strong>${nombre}</strong> <span style="font-size:0.8em; color:#94a3b8;">(${tipo})</span>${peaje}<br/>Saturación: <span style="color:#f87171; font-weight:bold;">${object.properties.trafico.toFixed(1)}/100</span>${textoDesvio(object.properties)}`,
+                        style: {backgroundColor: 'rgba(15, 23, 42, 0.9)', color: 'white', borderRadius: '8px', border: `1px solid ${colorBorde}`}
+                    };
+                }
+
+                if (object.properties && object.properties.categoria) {
+                    return {
+                        html: `🏭 <strong>${object.properties.nombre}</strong><br/><span style="color:#f472b6;">Categoría: ${object.properties.categoria}</span>`,
+                        style: {backgroundColor: 'rgba(15, 23, 42, 0.9)', color: 'white', borderRadius: '8px', border: '1px solid #ec4899'}
+                    };
+                }
+
+                if (object.is_gate) {
+                    return {
+                        html: `🚪 <strong>Puerta Aduanera / Acceso</strong><br/><span style="color:#38bdf8;">Cruce perimetral logístico</span>`,
+                        style: {backgroundColor: 'rgba(15, 23, 42, 0.9)', color: 'white', borderRadius: '8px', border: '1px solid #38bdf8'}
+                    };
+                }
+                return null;
+            }
+        });
+    }
+
+    inicializarMapa();
+
+    function seleccionarPuerto(puerto) {
+        selectedPuerto = puerto.id;
+        datosPuertasReales = [];
+        cortesDeLaSesion = [];
+        simulacionEnVuelo = false;
+        reconexionesSeguidas = 0;
+
+        const btnModoCorte = document.getElementById('btn-modo-corte');
+        if (btnModoCorte) {
+            btnModoCorte.innerText = "🔪";
+            btnModoCorte.classList.replace('btn-secondary', 'btn-danger');
+            modoCorteActivo = false;
+            deckgl.setProps({ controller: true });
+            document.getElementById('map').style.cursor = "default";
+            document.getElementById('linea-corte').setAttribute("points", "");
+        }
+
+        geojsonRutasActual = null;
+        geojsonIndustriasActual = null;
+        deltaPendiente = null;
+        rutasRevision++;
+        renderizarCapasDeckGL();
+        document.getElementById('btn-rutas').style.display = 'none';
+
+        const mapboxMap = deckgl.getMapboxMap();
+        if (mapboxMap) {
+            if (mapboxMap.getLayer('rutas-carreteras-layer')) mapboxMap.setPaintProperty('rutas-carreteras-layer', 'line-opacity', 0.15);
+            if (mapboxMap.getLayer('rutas-ferrocarril-layer')) mapboxMap.setPaintProperty('rutas-ferrocarril-layer', 'line-opacity', 0.15);
+        }
+
+        deckgl.setProps({
+            initialViewState: {
+                longitude: puerto.lng,
+                latitude: puerto.lat,
+                zoom: 10,
+                pitch: 45,
+                transitionDuration: 1500,
+                transitionInterpolator: new deck.FlyToInterpolator()
+            }
+        });
+
+        document.getElementById('detalle-box').style.display = 'flex';
+        document.getElementById('p-nombre').innerText = puerto.id;
+        document.getElementById('chat-history').innerHTML = `<div class="msg-ia">Analizando datos topológicos de ${puerto.id}... ¿Qué deseas saber sobre su resiliencia?</div>`;
+
+        conectarSimuladorWS(puerto.id);
+
+        if(currentAuthToken) {
+            cargarDetallesAvanzados(puerto.id);
+        } else {
+            limpiarDetallesVIP();
+            alert("⚠️ Necesitas iniciar sesión de manera segura para acceder a las analíticas detalladas.");
+        }
+    }
+
+    const btnLogin = document.getElementById('btn-login');
+    const uStatus = document.getElementById('user-status');
+
+    onIdTokenChanged(auth, async (user) => {
+        if (user) {
+            currentAuthToken = await user.getIdToken();
+            uStatus.innerHTML = `✅ Autenticado: <br/><span style="color:#e2e8f0;">${user.displayName}</span>`;
+            btnLogin.innerText = "Cerrar Sesión";
+            btnLogin.className = "btn btn-danger btn-sm";
+            btnLogin.onclick = () => signOut(auth);
+            if(selectedPuerto) cargarDetallesAvanzados(selectedPuerto);
+        } else {
+            currentAuthToken = null;
+            uStatus.innerHTML = "🔴 Sin Autenticar";
+            btnLogin.innerText = "Acceso Analistas";
+            btnLogin.className = "btn btn-outline-info btn-sm";
+            btnLogin.onclick = () => signInWithPopup(auth, provider);
+            limpiarDetallesVIP();
+            document.getElementById('detalle-box').style.display = 'none';
+        }
+    });
+
+    async function obtenerTokenFresco() {
+        if (!auth.currentUser) return null;
+        try {
+            currentAuthToken = await auth.currentUser.getIdToken();
+            return currentAuthToken;
+        } catch (e) {
+            console.error("No se pudo renovar el token de Firebase:", e);
+            return null;
+        }
+    }
+
+    async function cargarDetallesAvanzados(puertoId) {
+        const token = await obtenerTokenFresco();
+        if (!token) return limpiarDetallesVIP();
+
+        fetch(`/api/detalle-avanzado/${encodeURIComponent(puertoId)}`, { headers: { 'Authorization': `Bearer ${token}` } })
+        .then(res => { if(!res.ok) throw new Error("Acceso Restringido"); return res.json(); })
+        .then(data => {
+            if(data.error) { alert(data.error); return; }
+    document.getElementById('p-estres').innerText = data.indice_estres ?? 'N/A';
+    const _vol = data.volumen_diario ?? data.volumen_teus ?? null;
+    document.getElementById('p-teus').innerText = _vol !== null
+        ? `${_vol.toLocaleString()}${data.unidad_volumen ? ' ' + data.unidad_volumen.replace('/dia', '/día') : ''}`
+        : 'N/A';
+    document.getElementById('p-carga').innerText = data.carga_principal || 'N/A';
+    document.getElementById('p-camiones').innerText = (data.porcentaje_container_roro ?? null) !== null ? `${data.porcentaje_container_roro}%` : 'N/A';
+    document.getElementById('p-industrias').innerText = data.industrias_top || 'Desconocido';
+    document.getElementById('p-vias').innerText = data.vias_totales ?? data.vias_totales_km ?? 'N/A';
+    document.getElementById('p-export').innerText = (data.cuota_export ?? null) !== null ? `${data.cuota_export}%` : 'N/A';
+    document.getElementById('p-macro').innerText = data.riesgo_macroeconomico ?? 'N/A';
+
+            datosPuertasReales = (data.puertas_reales && data.puertas_reales.length > 0)
+                ? data.puertas_reales.map(p => ({ lng: p[0], lat: p[1], is_gate: true })) : [];
+
+            let spanRiesgo = document.getElementById('p-riesgo');
+            let riesgoTexto = data.riesgo_cuello_botella || 'BAJO';
+            let claseBadge = riesgoTexto.includes('ALTO') ? 'badge-danger' : (riesgoTexto.includes('MODERADO') ? 'badge-warning' : 'badge-success');
+            spanRiesgo.className = `badge-custom ${claseBadge}`; spanRiesgo.innerText = riesgoTexto;
+
+            const btnRutas = document.getElementById('btn-rutas');
+            btnRutas.style.display = 'block';
+            btnRutas.onclick = () => dibujarRutasTermicas(puertoId);
+        }).catch(err => {
+            limpiarDetallesVIP();
+        });
+    }
+
+    async function dibujarRutasTermicas(puertoId) {
+        const btn = document.getElementById('btn-rutas');
+        const oldText = btn.innerHTML;
+        btn.innerHTML = "⏳ Renderizando en GPU...";
+
+        const token = await obtenerTokenFresco();
+        if (!token) { btn.innerHTML = oldText; return alert("Sesión caducada. Vuelve a iniciar sesión."); }
+
+        const traer = async (ruta, etiqueta) => {
+            const res = await fetch(ruta, { headers: { 'Authorization': `Bearer ${token}` } });
+            if (!res.ok) {
+                let detalle = "";
+                try { detalle = (await res.json()).detail || ""; } catch (_) { }
+                throw new Error(`${etiqueta}: el servidor respondió ${res.status}${detalle ? " — " + detalle : ""}`);
+            }
+            try {
+                return await res.json();
+            } catch (e) {
+                throw new Error(`${etiqueta}: la respuesta llegó incompleta o no es JSON válido `
+                    + `(${e.message}). Suele pasar en puertos con muchísimas vías.`);
+            }
+        };
+
+        Promise.all([
+            traer(`/api/rutas-mapa/${encodeURIComponent(puertoId)}`, "Red viaria"),
+            traer(`/api/industrias-mapa/${encodeURIComponent(puertoId)}`, "Nodos industriales")
+        ])
+        .then(([geojsonRutas, geojsonIndustrias]) => {
+            btn.innerHTML = oldText;
+            if(!geojsonRutas || !geojsonRutas.features || geojsonRutas.features.length === 0) return alert("No hay geometrías para este puerto.");
+
+            geojsonRutasActual = geojsonRutas;
+            geojsonIndustriasActual = geojsonIndustrias;
+            if (deltaPendiente) { aplicarDelta(deltaPendiente); deltaPendiente = null; }
+            renderizarCapasDeckGL();
+
+            const puertoBase = datosPuertosVisibles.find(p => p.id === puertoId);
+            if (puertoBase) {
+                deckgl.setProps({
+                    initialViewState: {
+                        longitude: puertoBase.lng, latitude: puertoBase.lat,
+                        zoom: 11.5, pitch: 50, bearing: 15,
+                        transitionDuration: 2500, transitionInterpolator: new deck.FlyToInterpolator()
+                    }
+                });
+            }
+        }).catch(e => {
+            btn.innerHTML = oldText;
+            console.error("Fallo cargando la red del puerto", puertoId, e);
+            alert("No se pudo cargar la red en el visualizador.\n\n" + (e && e.message ? e.message : e)
+                + "\n\n(El detalle completo está en la consola del navegador.)");
+        });
+    }
+
+    function limpiarDetallesVIP() {
+        datosPuertasReales = [];
+        document.getElementById('p-estres').innerText = '--'; document.getElementById('p-teus').innerText = '--';
+        document.getElementById('p-riesgo').innerText = '--'; document.getElementById('p-riesgo').className = 'badge-custom badge-success';
+        document.getElementById('p-vias').innerText = '--'; document.getElementById('btn-rutas').style.display = 'none';
+        geojsonRutasActual = null;
+        deltaPendiente = null;
+
+        const mapboxMap = deckgl ? deckgl.getMapboxMap() : null;
+        if (mapboxMap) {
+            if (mapboxMap.getLayer('rutas-carreteras-layer')) mapboxMap.setPaintProperty('rutas-carreteras-layer', 'line-opacity', 1);
+            if (mapboxMap.getLayer('rutas-ferrocarril-layer')) mapboxMap.setPaintProperty('rutas-ferrocarril-layer', 'line-opacity', 1);
+        };
+
+        renderizarCapasDeckGL();
+    }
+
+    const chatInput = document.getElementById('chat-input');
+    const btnSendChat = document.getElementById('btn-send-chat');
+    const chatHistory = document.getElementById('chat-history');
+
+    const MAX_CONSULTA = 500;
+    chatInput.setAttribute("maxlength", MAX_CONSULTA);
+
+    let chatEsperandoId = null;
+
+    function pintarRespuestaCopiloto(texto, esError) {
+        if (chatEsperandoId) {
+            document.getElementById(chatEsperandoId)?.remove();
+            chatEsperandoId = null;
+        }
+        chatInput.disabled = false;
+        btnSendChat.disabled = false;
+        const estilo = esError ? ' text-danger" style="border-color: #ef4444;' : '';
+        chatHistory.innerHTML += `<div class="msg-ia${estilo}">${escapeHTML(texto)}</div>`;
+        chatHistory.scrollTop = chatHistory.scrollHeight;
+    }
+
+    chatInput.addEventListener('keypress', function (e) { if (e.key === 'Enter') btnSendChat.click(); });
+
+    btnSendChat.onclick = () => {
+        const msg = chatInput.value.trim().slice(0, MAX_CONSULTA);
+        if (!msg || !selectedPuerto) return;
+
+        if (!socketSimulador || socketSimulador.readyState !== WebSocket.OPEN) {
+            pintarRespuestaCopiloto(
+                "Sin conexión con el motor de simulación: el copiloto necesita el "
+                + "escenario en vivo para responder. Vuelve a seleccionar el puerto.",
+                true);
+            return;
+        }
+
+        chatHistory.innerHTML += `<div class="msg-user">${escapeHTML(msg)}</div>`;
+        chatInput.value = "";
+
+        chatInput.disabled = true;
+        btnSendChat.disabled = true;
+
+        chatEsperandoId = "typing-" + Date.now();
+        chatHistory.innerHTML += `<div id="${chatEsperandoId}" class="typing-indicator">Analizando el escenario actual...</div>`;
+        chatHistory.scrollTop = chatHistory.scrollHeight;
+
+        socketSimulador.send(JSON.stringify({ tipo_evento: "chat", mensaje: msg }));
+    };
+
+    const shockSlider = document.getElementById('shock-slider');
+    const shockValor = document.getElementById('shock-valor');
+    const btnSimular = document.getElementById('btn-simular');
+    const btnResetCorte = document.getElementById('btn-reset-corte');
+
+    shockSlider.addEventListener('input', function() { shockValor.innerText = `${this.value}x`; });
+
+    btnSimular.onclick = () => {
+        if(!selectedPuerto || !currentAuthToken) return alert("Selecciona un puerto y autentícate.");
+        btnSimular.innerHTML = "⏳ Calculando Impacto...";
+        if (socketSimulador && socketSimulador.readyState === WebSocket.OPEN) {
+            simulacionEnVuelo = true;
+            socketSimulador.send(JSON.stringify({ tipo_evento: "shock", shock_multiplier: parseFloat(shockSlider.value) }));
+        } else {
+            alert("El motor dinámico no está conectado."); btnSimular.innerHTML = "Proyectar Escenario";
+        }
+    };
+
+    if (btnResetCorte) btnResetCorte.onclick = () => {
+        if (socketSimulador?.readyState === WebSocket.OPEN) {
+            btnResetCorte.style.opacity = "0.5";
+            cortesDeLaSesion = [];
+            simulacionEnVuelo = true;
+            socketSimulador.send(JSON.stringify({ tipo_evento: "reset_cortes" }));
+
+            document.getElementById('shock-slider').value = 1.0;
+            document.getElementById('shock-valor').innerText = "1.0x";
+            document.getElementById('select-clima').value = "auto";
+
+            btnResetCorte.style.display = "none";
+        }
+    };
+
+    document.getElementById('select-clima').addEventListener('change', (e) => {
+        if (socketSimulador?.readyState === WebSocket.OPEN) {
+            simulacionEnVuelo = true;
+            socketSimulador.send(JSON.stringify({ tipo_evento: "clima", clima: e.target.value }));
+        }
+    });
+
+    let modoCorteActivo = false, dibujando = false, pixelesCorte = [], coordenadasGPSCorte = [];
+    const btnModoCorte = document.getElementById('btn-modo-corte'), polyline = document.getElementById('linea-corte'), mapContainer = document.getElementById('map');
+
+    let cortesDeLaSesion = [];
+    let simulacionEnVuelo = false;
+    let reconexionesSeguidas = 0;
+    let temporizadorReconexion = null;
+    let ultimoCierreWS = "";
+
+    function restaurarBotonCorte() {
+        if (!btnModoCorte) return;
+        btnModoCorte.innerText = "🔪";
+        btnModoCorte.style.borderColor = "#ef4444";
+        btnModoCorte.style.color = "#ef4444";
+        btnModoCorte.classList.remove('active');
+    }
+
+    let temporizadorSimulacion = null;
+    function armarVigilanteSimulacion() {
+        clearTimeout(temporizadorSimulacion);
+        temporizadorSimulacion = setTimeout(() => {
+            restaurarBotonCorte();
+            if (btnSimular) btnSimular.innerHTML = "Proyectar Escenario";
+            alert("⏱️ El motor de simulación no ha respondido a tiempo. "
+                + "Vuelve a intentarlo; si se repite, revisa los logs de Cloud Run.");
+        }, 120000);
+    }
+    function pararVigilanteSimulacion() {
+        clearTimeout(temporizadorSimulacion);
+        temporizadorSimulacion = null;
+    }
+
+    btnModoCorte.onclick = () => {
+        if (!selectedPuerto || !currentAuthToken) return alert("Selecciona puerto y usuario.");
+        modoCorteActivo = !modoCorteActivo;
+        if (modoCorteActivo) {
+            btnModoCorte.innerText = "❌"; btnModoCorte.classList.add('active');
+            deckgl.setProps({ controller: false }); mapContainer.style.cursor = "crosshair";
+        } else {
+            btnModoCorte.innerText = "🔪"; btnModoCorte.classList.remove('active');
+            btnModoCorte.style.borderColor = "#ef4444"; btnModoCorte.style.color = "#ef4444";
+            deckgl.setProps({ controller: true }); mapContainer.style.cursor = "default"; polyline.setAttribute("points", "");
+        }
+    };
+
+    mapContainer.addEventListener('mousedown', (e) => {
+        if (!modoCorteActivo) return;
+        dibujando = true; pixelesCorte = [`${e.clientX},${e.clientY}`]; coordenadasGPSCorte = [deckgl.getViewports()[0].unproject([e.clientX, e.clientY])];
+    });
+
+    mapContainer.addEventListener('mousemove', (e) => {
+        if (!dibujando) return;
+        pixelesCorte.push(`${e.clientX},${e.clientY}`); polyline.setAttribute("points", pixelesCorte.join(" "));
+        coordenadasGPSCorte.push(deckgl.getViewports()[0].unproject([e.clientX, e.clientY]));
+    });
+
+    mapContainer.addEventListener('mouseup', async () => {
+        if (!dibujando) return; dibujando = false;
+        if (coordenadasGPSCorte.length > 2) {
+            if (socketSimulador?.readyState === WebSocket.OPEN) {
+                btnModoCorte.innerText = "⏳"; btnModoCorte.style.borderColor = "#f59e0b"; btnModoCorte.style.color = "#f59e0b";
+                cortesDeLaSesion.push(coordenadasGPSCorte);
+                simulacionEnVuelo = true;
+                socketSimulador.send(JSON.stringify({ tipo_evento: "corte", linea_corte: coordenadasGPSCorte }));
+                armarVigilanteSimulacion();
+            } else {
+                restaurarBotonCorte();
+                alert("Se ha perdido la conexión con el motor de simulación. "
+                    + "Reconectando: vuelve a hacer el corte en un segundo.");
+                if (selectedPuerto) conectarSimuladorWS(selectedPuerto);
+            }
+        }
+        setTimeout(() => { polyline.setAttribute("points", ""); }, 1000);
+        modoCorteActivo = false; deckgl.setProps({ controller: true }); mapContainer.style.cursor = "default";
+    });
+
+    function conectarSimuladorWS(puertoId) {
+        clearTimeout(temporizadorReconexion);
+        if (socketSimulador) { socketSimulador.onclose = null; socketSimulador.close(); }
+        socketSimulador = new WebSocket(`${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/api/ws/simular-corte/${encodeURIComponent(puertoId)}`);
+
+        socketSimulador.onopen = async () => {
+            const token = await obtenerTokenFresco();
+            if (token && socketSimulador.readyState === WebSocket.OPEN) {
+                socketSimulador.send(JSON.stringify({
+                    token: token,
+                    cortes_pendientes: cortesDeLaSesion.length > 0
+                }));
+            }
+            if(window.wsPingInterval) clearInterval(window.wsPingInterval);
+            window.wsPingInterval = setInterval(() => { if (socketSimulador.readyState === WebSocket.OPEN) socketSimulador.send(JSON.stringify({ tipo_evento: "ping" })); }, 30000);
+        };
+
+        socketSimulador.onclose = (evento) => {
+            const motivo = `código ${evento.code}`
+                + (evento.reason ? ` — ${evento.reason}` : "")
+                + (evento.wasClean ? " (cierre limpio)" : " (cierre abrupto)");
+            console.warn(`WebSocket del simulador cerrado: ${motivo}`);
+            ultimoCierreWS = motivo;
+
+            pararVigilanteSimulacion();
+            restaurarBotonCorte();
+            if (btnSimular) btnSimular.innerHTML = "Proyectar Escenario";
+            if (window.wsPingInterval) clearInterval(window.wsPingInterval);
+
+            if (chatEsperandoId) {
+                pintarRespuestaCopiloto(
+                    "Se perdió la conexión antes de recibir la respuesta. "
+                    + "Vuelve a preguntar cuando el motor se haya reconectado.", true);
+            }
+
+            if (!selectedPuerto || selectedPuerto !== puertoId) return;
+            if (!currentAuthToken) return;
+
+            const perdioUnCalculo = simulacionEnVuelo;
+            simulacionEnVuelo = false;
+
+            if (reconexionesSeguidas >= 3) {
+                document.getElementById('p-industrias').innerText =
+                    "Sin conexión con el motor de simulación.";
+                alert("Se ha perdido la conexión con el motor de simulación y no "
+                    + "se ha podido restablecer tras 3 intentos. Último cierre: "
+                    + (ultimoCierreWS || "desconocido")
+                    + ". Vuelve a seleccionar el puerto para empezar de cero.");
+                return;
+            }
+
+            reconexionesSeguidas++;
+            document.getElementById('p-industrias').innerText =
+                perdioUnCalculo ? "Conexión perdida; rehaciendo el corte..."
+                                : "Reconectando con el motor...";
+            temporizadorReconexion = setTimeout(
+                () => conectarSimuladorWS(puertoId), 1000 * reconexionesSeguidas);
+        };
+
+        socketSimulador.onmessage = (event) => {
+            const response = JSON.parse(event.data);
+            const badgeClima = document.getElementById('clima-badge');
+
+            if (response.status === "auth_ok") {
+                if (cortesDeLaSesion.length > 0) {
+                    simulacionEnVuelo = true;
+                    socketSimulador.send(JSON.stringify({
+                        tipo_evento: "restaurar_cortes",
+                        lineas_corte: cortesDeLaSesion
+                    }));
+                    armarVigilanteSimulacion();
+                }
+            } else if (response.status === "clima_detectado") {
+                let iconos = { "despejado": "☀️ Despejado", "lluvia_torrencial": "🌧️ Lloviendo", "nieve": "❄️ Nevando" };
+                badgeClima.innerText = iconos[response.clima_real] || "☀️ Despejado";
+                badgeClima.className = response.clima_real === "despejado" ? "badge bg-success float-end" : "badge bg-warning text-dark float-end";
+            } else if (response.status === "processing") {
+                btnModoCorte.innerText = "⏳"; btnModoCorte.style.borderColor = "#f59e0b"; btnModoCorte.style.color = "#f59e0b";
+                if (response.fase) document.getElementById('p-industrias').innerText = response.fase;
+                armarVigilanteSimulacion();
+            } else if (response.status === "aviso") {
+                console.warn("Simulador:", response.message);
+                document.getElementById('p-industrias').innerText = response.message;
+            } else if (response.status === "chat") {
+                pintarRespuestaCopiloto(response.respuesta, false);
+            } else if (response.status === "chat_error") {
+                pintarRespuestaCopiloto("⚠️ " + (response.message || "El copiloto no ha podido responder."), true);
+            } else if (response.status === "error") {
+                pararVigilanteSimulacion();
+                simulacionEnVuelo = false;
+                restaurarBotonCorte();
+                if (btnSimular) btnSimular.innerHTML = "Proyectar Escenario";
+                console.error("Error del motor de simulación:", response.message);
+                if (response.evento === "corte" && cortesDeLaSesion.length > 0) {
+                    cortesDeLaSesion.pop();
+                }
+                alert("⚠️ " + (response.message || "Error en el motor de simulación."));
+            } else if (response.status === "success") {
+                pararVigilanteSimulacion();
+                simulacionEnVuelo = false;
+                reconexionesSeguidas = 0;
+                const data = response.data;
+                try {
+                    if (data.delta_rutas) {
+                        if (!aplicarDelta(data.delta_rutas)) deltaPendiente = data.delta_rutas;
+                    } else if (data.rutas_simuladas) {
+                        geojsonRutasActual = data.rutas_simuladas;
+                    }
+
+                    rutasRevision++;
+                    renderizarCapasDeckGL();
+                    document.getElementById('p-estres').innerText = data.nuevo_estres;
+
+                    if (btnResetCorte) { btnResetCorte.style.opacity = "1"; btnResetCorte.style.display = data.vias_afectadas > 0 ? "block" : "none"; }
+                    if(data.vias_afectadas > 0) {
+                        document.getElementById('p-industrias').innerText =
+                            data.diagnostico || `Cortadas ${data.vias_afectadas} arterias.`;
+                        const grave = (data.fraccion_demanda_aislada || 0) > 0
+                                   || (data.sobrecoste_corte || 0) >= 0.25;
+                        document.getElementById('p-riesgo').innerText = grave ? "CRÍTICO" : "RED RESILIENTE";
+                        document.getElementById('p-riesgo').className = grave
+                            ? "badge-custom badge-danger" : "badge-custom badge-success";
+                    } else {
+                        document.getElementById('p-industrias').innerText = "Red intacta.";
+                        document.getElementById('p-riesgo').innerText = data.nuevo_estres > 7 ? "ALTO" : (data.nuevo_estres > 4 ? "MODERADO" : "BAJO");
+                        document.getElementById('p-riesgo').className = data.nuevo_estres > 7 ? "badge-custom badge-danger" : (data.nuevo_estres > 4 ? "badge-custom badge-warning" : "badge-custom badge-success");
+                    }
+                } catch (err) {
+                    console.error("Error pintando el resultado de la simulación:", err);
+                    alert("El cálculo terminó, pero falló al dibujarse en el mapa.");
+                } finally {
+                    setTimeout(() => {
+                        restaurarBotonCorte();
+                        if (btnSimular) btnSimular.innerHTML = "Proyectar Escenario";
+                    }, 1000);
+                }
+            }
+        };
+    }
+
+    document.getElementById('btn-zoom-in').onclick = () => { const v = deckgl.getViewports()[0]; deckgl.setProps({ initialViewState: { ...v, zoom: v.zoom + 1, transitionDuration: 250 } }); };
+    document.getElementById('btn-zoom-out').onclick = () => { const v = deckgl.getViewports()[0]; deckgl.setProps({ initialViewState: { ...v, zoom: v.zoom - 1, transitionDuration: 250 } }); };
+
+    let esModo3D = true;
+    document.getElementById('btn-pitch').onclick = (e) => {
+        esModo3D = !esModo3D; const v = deckgl.getViewports()[0];
+        deckgl.setProps({ initialViewState: { ...v, pitch: esModo3D ? 50 : 0, bearing: esModo3D ? 15 : 0, transitionDuration: 500 } });
+        e.target.innerText = esModo3D ? "2D" : "3D"; e.target.classList.toggle('active');
+    };
+
+    document.getElementById('btn-mapa-toggle').onclick = (e) => {
+        esSatelite = !esSatelite;
+        const newStyle = esSatelite ? estiloSateliteFinal : estiloOscuroFinal;
+        deckgl.setProps({ mapStyle: newStyle });
+
+        const mapboxMap = deckgl.getMapboxMap ? deckgl.getMapboxMap() : null;
+        if (mapboxMap) {
+            mapboxMap.setStyle(newStyle, { diff: false });
+
+            setTimeout(() => {
+                if (selectedPuerto) {
+                    if (mapboxMap.getLayer('rutas-carreteras-layer')) mapboxMap.setPaintProperty('rutas-carreteras-layer', 'line-opacity', 0.15);
+                    if (mapboxMap.getLayer('rutas-ferrocarril-layer')) mapboxMap.setPaintProperty('rutas-ferrocarril-layer', 'line-opacity', 0.15);
+                }
+            }, 300);
+        }
+        e.target.classList.toggle('active'); e.target.innerText = esSatelite ? "🗺️" : "🌍";
+    };
+
+</script>
+</body>
+</html>

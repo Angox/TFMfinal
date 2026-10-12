@@ -1,0 +1,112 @@
+name: "Despliegue Multi-Cloud Terraform"
+
+on:
+  workflow_dispatch:
+    inputs:
+      cloud_run_ingress:
+        description: "Acceso a Cloud Run"
+        required: true
+        default: "INGRESS_TRAFFIC_ALL"
+        type: choice
+        options:
+          - INGRESS_TRAFFIC_ALL
+          - INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER
+
+  workflow_call:
+    inputs:
+      cloud_run_ingress:
+        required: false
+        default: "INGRESS_TRAFFIC_ALL"
+        type: string
+
+jobs:
+  terraform:
+    name: "Terraform CI/CD"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v7
+
+      - name: Cargar configuracion central (config.env)
+        run: |
+          grep -vE '^[[:space:]]*(#|$)' config.env | tr -d '\r' > /tmp/config.env
+          cat /tmp/config.env >> "$GITHUB_ENV"
+          sed -n 's/^S3_BUCKET_NAME=/TF_VAR_bucket_datos_nombre=/p' /tmp/config.env >> "$GITHUB_ENV"
+          sed -n 's/^AWS_REGION=/TF_VAR_aws_region=/p' /tmp/config.env >> "$GITHUB_ENV"
+          echo "Configuracion central cargada:"; cat /tmp/config.env
+
+      - name: Configurar credenciales de AWS
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Autenticar en Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          credentials_json: ${{ secrets.GCP_CREDENTIALS }}
+
+      - name: Configurar Docker para Artifact Registry
+        run: gcloud auth configure-docker europe-southwest1-docker.pkg.dev
+
+      - name: Instalar Terraform
+        uses: hashicorp/setup-terraform@v4
+
+      - name: Aviso sobre la politica de acceso
+        run: |
+          echo "Cloud Run ingress = ${{ inputs.cloud_run_ingress }}"
+          if [ "${{ inputs.cloud_run_ingress }}" = "INGRESS_TRAFFIC_ALL" ]; then
+            echo "::warning title=Cloud Run abierto a internet::Modo pruebas: la URL *.run.app responde directamente y Cloud Armor no se aplica. Para producción usar INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER."
+          else
+            echo "Acceso restringido al balanceador."
+            echo "Estado del certificado:"
+            echo "  gcloud compute ssl-certificates describe tfm-ssl-cert --global"
+          fi
+
+      - name: Crear Bucket de Estado (Bootstrap)
+        run: |
+          aws s3api create-bucket \
+            --bucket "$TF_STATE_BUCKET" \
+            --region "$AWS_REGION" \
+            --create-bucket-configuration LocationConstraint="$AWS_REGION" || true
+
+          aws s3api put-bucket-versioning \
+            --bucket "$TF_STATE_BUCKET" \
+            --versioning-configuration Status=Enabled || true
+
+      - name: Terraform Init
+        run: |
+          terraform init \
+            -backend-config="bucket=$TF_STATE_BUCKET" \
+            -backend-config="region=$AWS_REGION"
+        working-directory: ./terraform
+
+      - name: Terraform Apply (Solo Artifact Registry)
+        run: |
+          terraform apply -target=google_artifact_registry_repository.tfm_repo -auto-approve \
+            -var="gemini_api_key=${{ secrets.GEMINI_API_KEY }}" \
+            -var="aws_access_key=${{ secrets.AWS_ACCESS_KEY_ID }}" \
+            -var="aws_secret_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
+            -var="comtrade_api_key=${{ secrets.COMTRADE_API_KEY }}" \
+            -var="cloud_run_ingress=${{ inputs.cloud_run_ingress }}"
+        working-directory: ./terraform
+
+      - name: Construir y Subir Imagen Docker
+        run: |
+          IMAGE_NAME="europe-southwest1-docker.pkg.dev/proyecto-tfm-489108/tfm-repo/tfm-app:${{ github.sha }}"
+          docker build -t $IMAGE_NAME ./app
+          docker push $IMAGE_NAME
+
+      - name: Terraform Apply (Resto de la Infraestructura)
+        run: |
+          IMAGE_NAME="europe-southwest1-docker.pkg.dev/proyecto-tfm-489108/tfm-repo/tfm-app:${{ github.sha }}"
+          terraform apply -auto-approve \
+            -var="gemini_api_key=${{ secrets.GEMINI_API_KEY }}" \
+            -var="aws_access_key=${{ secrets.AWS_ACCESS_KEY_ID }}" \
+            -var="aws_secret_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
+            -var="comtrade_api_key=${{ secrets.COMTRADE_API_KEY }}" \
+            -var="docker_image=$IMAGE_NAME" \
+            -var="cloud_run_ingress=${{ inputs.cloud_run_ingress }}"
+        working-directory: ./terraform

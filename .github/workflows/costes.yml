@@ -1,0 +1,79 @@
+name: "Informes: estudio comparativo de costes"
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: write
+
+jobs:
+  costes:
+    name: "Comparativa AWS vs GCP vs Azure"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v7
+
+      - name: Configurar Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.10'
+
+      - name: Generar el estudio de costes
+        env:
+          GCP_BILLING_API_KEY: ${{ secrets.GCP_BILLING_API_KEY }}
+        run: python estudio_costes/generar_informe.py --salida docs/costes
+
+      - name: Resumir conceptos sin precio
+        if: always()
+        run: |
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json, os
+          ruta = "docs/costes/estudio_costes.json"
+          if not os.path.isfile(ruta):
+              print("No se generó el informe."); raise SystemExit
+          d = json.load(open(ruta, encoding="utf-8"))
+          print(f"## Estudio de costes · {d['fecha']}\n")
+          print("| Nube | USD/mes | Sin precio |")
+          print("|---|---|---|")
+          for nube, res in d["resultados"].items():
+              n = res["conceptos_pendientes"]
+              print(f"| {nube.upper()} | {res['total_usd']} | {n or '—'} |")
+          print()
+          for nube, res in d["resultados"].items():
+              faltan = [f for f in res["filas"] if f["origen"] == "pendiente"]
+              if not faltan:
+                  continue
+              print(f"### {nube.upper()}: {len(faltan)} sin precio\n")
+              for f in faltan:
+                  print(f"- `{f['concepto']}` — {f.get('nota', '')}")
+              print()
+          PY
+
+      - name: Publicar el informe en el repositorio
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/costes/
+          if git diff --cached --quiet; then
+            echo "Sin cambios en el informe de costes."
+          else
+            git commit -m "docs: regenerar el estudio de costes [skip ci]"
+            for intento in 1 2 3; do
+              if git pull --rebase --autostash origin "$GITHUB_REF_NAME" && git push; then
+                echo "Informe publicado."
+                break
+              fi
+              echo "Push rechazado, reintento $intento de 3..."
+              sleep 7
+            done
+          fi
+
+      - name: Subir el informe como artefacto
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: estudio-costes
+          path: docs/costes/

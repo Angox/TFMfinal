@@ -1,0 +1,50 @@
+name: "Destruir Infraestructura (Terraform Destroy)"
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  terraform-destroy:
+    name: "Terraform Destroy"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./terraform
+
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v7
+
+      - name: Cargar configuracion central (config.env)
+        working-directory: .
+        run: |
+          grep -vE '^[[:space:]]*(#|$)' config.env | tr -d '\r' > /tmp/config.env
+          cat /tmp/config.env >> "$GITHUB_ENV"
+          sed -n 's/^S3_BUCKET_NAME=/TF_VAR_bucket_datos_nombre=/p' /tmp/config.env >> "$GITHUB_ENV"
+          sed -n 's/^AWS_REGION=/TF_VAR_aws_region=/p' /tmp/config.env >> "$GITHUB_ENV"
+          echo "Configuracion central cargada:"; cat /tmp/config.env
+
+      - name: Configurar credenciales de AWS
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Autenticar en Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          credentials_json: ${{ secrets.GCP_CREDENTIALS }}
+
+      - name: Instalar Terraform
+        uses: hashicorp/setup-terraform@v4
+
+      - name: Terraform Init
+        run: |
+          terraform init \
+            -backend-config="bucket=$TF_STATE_BUCKET" \
+            -backend-config="region=$AWS_REGION"
+
+      - name: Terraform Destroy
+        run: terraform destroy -auto-approve -var="gemini_api_key=${{ secrets.GEMINI_API_KEY }}" -var="aws_access_key=${{ secrets.AWS_ACCESS_KEY_ID }}" -var="aws_secret_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}" -var="comtrade_api_key=${{ secrets.COMTRADE_API_KEY }}"

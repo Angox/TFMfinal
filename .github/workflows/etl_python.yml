@@ -1,0 +1,223 @@
+name: "ETL: Lanzamiento Dinámico en Fargate"
+
+on:
+  workflow_dispatch:
+    inputs:
+      n_puertos:
+        description: "Puertos a procesar (0 = catalogo completo)"
+        required: true
+        default: "10"
+      semilla:
+        description: "Semilla del muestreo"
+        required: true
+        default: "42"
+      puertos_fijos:
+        description: "portid que se procesan siempre, además del muestreo (ver docs/casos_estudio)"
+        required: false
+        default: "port387,port103,port1350,port1160,port843,port446,port794,port1114,port57,port311,port664"
+      esperar:
+        description: "Esperar a que Batch termine"
+        required: false
+        default: true
+        type: boolean
+      timeout_minutos:
+        description: "Limite de espera en minutos"
+        required: false
+        default: "240"
+      umbral_fallos_pct:
+        description: "Porcentaje de puertos fallidos que aun se tolera"
+        required: false
+        default: "25"
+
+  workflow_call:
+    inputs:
+      n_puertos:
+        required: true
+        type: string
+      semilla:
+        required: false
+        default: "42"
+        type: string
+      puertos_fijos:
+        required: false
+        default: ""
+        type: string
+      esperar:
+        required: false
+        default: true
+        type: boolean
+      timeout_minutos:
+        required: false
+        default: "240"
+        type: string
+      umbral_fallos_pct:
+        required: false
+        default: "25"
+        type: string
+    outputs:
+      puertos_encolados:
+        description: "Total de tareas encoladas entre las tres tallas"
+        value: ${{ jobs.desplegar-y-ejecutar-etl.outputs.puertos_encolados }}
+
+jobs:
+  desplegar-y-ejecutar-etl:
+    name: "Actualizar Script S3 y Lanzar Fargate Batch"
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    outputs:
+      puertos_encolados: ${{ steps.clasificar.outputs.total }}
+
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v7
+
+      - name: Cargar configuracion central (config.env)
+        run: |
+          grep -vE '^[[:space:]]*(#|$)' config.env | tr -d '\r' > /tmp/config.env
+          cat /tmp/config.env >> "$GITHUB_ENV"
+          sed -n 's/^S3_BUCKET_NAME=/TF_VAR_bucket_datos_nombre=/p' /tmp/config.env >> "$GITHUB_ENV"
+          sed -n 's/^AWS_REGION=/TF_VAR_aws_region=/p' /tmp/config.env >> "$GITHUB_ENV"
+          echo "Configuracion central cargada:"; cat /tmp/config.env
+
+      - name: Configurar credenciales de AWS
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Configurar Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.10'
+
+      - name: Instalar dependencias Python
+        run: pip install -r etl/requirements-ci.txt
+
+      - name: Actualizar Catálogo FMI en S3
+        run: python etl/extraer_fmi_completo.py
+
+      - name: Actualizar Perfiles UN Comtrade en S3
+        env:
+          COMTRADE_API_KEY: ${{ secrets.COMTRADE_API_KEY }}
+        run: python etl/extraer_comtrade_completo.py
+
+      - name: Comprobar que la imagen del ETL existe en ECR
+        run: |
+          set -euo pipefail
+          if ! aws ecr describe-images \
+                 --repository-name tfm-etl-grafos \
+                 --image-ids imageTag=latest >/dev/null 2>&1; then
+            echo "::error::No hay imagen 'tfm-etl-grafos:latest' en ECR. Ejecuta antes 'Utilidad: Compilar imagen del ETL y subirla a ECR' o pipeline_completo.yml."
+            exit 1
+          fi
+          EMPUJADA=$(aws ecr describe-images \
+            --repository-name tfm-etl-grafos \
+            --image-ids imageTag=latest \
+            --query 'imageDetails[0].imagePushedAt' --output text)
+          echo "Imagen encontrada en ECR, publicada el $EMPUJADA"
+
+      - name: Subir scripts actualizados a S3
+        run: |
+          aws s3 cp etl/etl_procesamiento.py s3://${{ env.S3_BUCKET_NAME }}/scripts/etl_procesamiento.py
+          aws s3 cp etl/clasificar_puertos.py s3://${{ env.S3_BUCKET_NAME }}/scripts/clasificar_puertos.py
+
+      - name: Clasificar Puertos por Tallas (FinOps Right-Sizing)
+        id: clasificar
+        env:
+          N_PUERTOS_MUESTRA: ${{ inputs.n_puertos }}
+          SEMILLA_MUESTREO: ${{ inputs.semilla }}
+          PUERTOS_FIJOS: ${{ inputs.puertos_fijos }}
+        run: |
+          python etl/clasificar_puertos.py
+          cat tamaños.env >> $GITHUB_ENV
+          . ./tamaños.env
+          echo "Muestra: $SIZE_S small + $SIZE_M medium + $SIZE_L large"
+          echo "total=$((SIZE_S + SIZE_M + SIZE_L))" >> "$GITHUB_OUTPUT"
+
+      - name: Lanzar Batch Job (TALLA SMALL)
+        if: env.SIZE_S > 0
+        run: |
+          if [ "${{ env.SIZE_S }}" -eq 1 ]; then
+            ID=$(aws batch submit-job \
+              --job-name tfm-hinterland-small \
+              --job-queue tfm-queue \
+              --job-definition tfm-etl-job \
+              --container-overrides '{"environment": [{"name": "TALLA", "value": "S"}, {"name": "S3_BUCKET_NAME", "value": "${{ env.S3_BUCKET_NAME }}"}]}' \
+              --query jobId --output text)
+          else
+            ID=$(aws batch submit-job \
+              --job-name tfm-hinterland-small \
+              --job-queue tfm-queue \
+              --job-definition tfm-etl-job \
+              --array-properties size=${{ env.SIZE_S }} \
+              --container-overrides '{"environment": [{"name": "TALLA", "value": "S"}, {"name": "S3_BUCKET_NAME", "value": "${{ env.S3_BUCKET_NAME }}"}]}' \
+              --query jobId --output text)
+          fi
+          echo "$ID" >> "$RUNNER_TEMP/job_ids.txt"
+          echo "Encolado SMALL: $ID (${{ env.SIZE_S }} tareas)"
+
+      - name: Lanzar Batch Job (TALLA MEDIUM)
+        if: env.SIZE_M > 0
+        run: |
+          if [ "${{ env.SIZE_M }}" -eq 1 ]; then
+            ID=$(aws batch submit-job \
+              --job-name tfm-hinterland-medium \
+              --job-queue tfm-queue \
+              --job-definition tfm-etl-job \
+              --container-overrides '{"resourceRequirements": [{"type": "VCPU", "value": "2"}, {"type": "MEMORY", "value": "8192"}], "environment": [{"name": "TALLA", "value": "M"}, {"name": "S3_BUCKET_NAME", "value": "${{ env.S3_BUCKET_NAME }}"}]}' \
+              --query jobId --output text)
+          else
+            ID=$(aws batch submit-job \
+              --job-name tfm-hinterland-medium \
+              --job-queue tfm-queue \
+              --job-definition tfm-etl-job \
+              --array-properties size=${{ env.SIZE_M }} \
+              --container-overrides '{"resourceRequirements": [{"type": "VCPU", "value": "2"}, {"type": "MEMORY", "value": "8192"}], "environment": [{"name": "TALLA", "value": "M"}, {"name": "S3_BUCKET_NAME", "value": "${{ env.S3_BUCKET_NAME }}"}]}' \
+              --query jobId --output text)
+          fi
+          echo "$ID" >> "$RUNNER_TEMP/job_ids.txt"
+          echo "Encolado MEDIUM: $ID (${{ env.SIZE_M }} tareas)"
+
+      - name: Lanzar Batch Job (TALLA LARGE - MEGA HUBS)
+        if: env.SIZE_L > 0
+        run: |
+          if [ "${{ env.SIZE_L }}" -eq 1 ]; then
+            ID=$(aws batch submit-job \
+              --job-name tfm-hinterland-large \
+              --job-queue tfm-queue \
+              --job-definition tfm-etl-job \
+              --container-overrides '{"resourceRequirements": [{"type": "VCPU", "value": "4"}, {"type": "MEMORY", "value": "16384"}], "environment": [{"name": "TALLA", "value": "L"}, {"name": "S3_BUCKET_NAME", "value": "${{ env.S3_BUCKET_NAME }}"}]}' \
+              --query jobId --output text)
+          else
+            ID=$(aws batch submit-job \
+              --job-name tfm-hinterland-large \
+              --job-queue tfm-queue \
+              --job-definition tfm-etl-job \
+              --array-properties size=${{ env.SIZE_L }} \
+              --container-overrides '{"resourceRequirements": [{"type": "VCPU", "value": "4"}, {"type": "MEMORY", "value": "16384"}], "environment": [{"name": "TALLA", "value": "L"}, {"name": "S3_BUCKET_NAME", "value": "${{ env.S3_BUCKET_NAME }}"}]}' \
+              --query jobId --output text)
+          fi
+          echo "$ID" >> "$RUNNER_TEMP/job_ids.txt"
+          echo "Encolado LARGE: $ID (${{ env.SIZE_L }} tareas)"
+
+      - name: Esperar a que AWS Batch termine
+        if: inputs.esperar
+        run: |
+          if [ ! -s "$RUNNER_TEMP/job_ids.txt" ]; then
+            echo "::error::No se encoló ninguna tarea. Revisa la muestra: la clasificación devolvió 0 puertos en las tres tallas."
+            exit 1
+          fi
+          JOBS=$(tr '\n' ' ' < "$RUNNER_TEMP/job_ids.txt")
+          echo "Esperando a los trabajos: $JOBS"
+          python etl/esperar_batch.py \
+            --jobs $JOBS \
+            --timeout-minutos "${{ inputs.timeout_minutos }}" \
+            --umbral-fallos-pct "${{ inputs.umbral_fallos_pct }}"
+
+      - name: Aviso de asincronía (espera desactivada)
+        if: ${{ !inputs.esperar }}
+        run: |
+          echo "::warning::Espera desactivada: los trabajos quedan encolados sin comprobar su resultado."
+          echo "Estado de los trabajos:"
+          echo "  aws batch describe-jobs --jobs \$(tr '\\n' ' ' < job_ids.txt)"

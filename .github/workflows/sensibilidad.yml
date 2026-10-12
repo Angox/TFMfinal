@@ -1,0 +1,226 @@
+name: "Informes: análisis de sensibilidad y ablación"
+
+on:
+  workflow_dispatch:
+    inputs:
+      puertos:
+        description: "Nº de puertos a analizar"
+        required: true
+        default: "12"
+      tallas:
+        description: "Tallas de las que tomarlos, separadas por comas"
+        required: true
+        default: "S,M,L"
+        type: choice
+        options: ["S,M,L", "S", "M", "L", "M,L"]
+      max_paralelo:
+        description: "Puertos analizados en paralelo"
+        required: false
+        default: "12"
+
+  workflow_call:
+    inputs:
+      puertos:
+        required: false
+        default: "12"
+        type: string
+      tallas:
+        required: false
+        default: "S,M,L"
+        type: string
+      max_paralelo:
+        required: false
+        default: "12"
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  plan:
+    name: "Reparto de puertos"
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      matriz: ${{ steps.reparto.outputs.matriz }}
+
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v7
+
+      - name: Cargar configuración central (config.env)
+        run: |
+          grep -vE '^[[:space:]]*(#|$)' config.env | tr -d '\r' > /tmp/config.env
+          cat /tmp/config.env >> "$GITHUB_ENV"
+
+      - name: Configurar credenciales de AWS
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Configurar Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+          cache-dependency-path: etl/requirements.txt
+
+      - name: Instalar el stack del ETL
+        run: |
+          sudo apt-get update && sudo apt-get install -y libgdal-dev
+          pip install -r etl/requirements.txt
+
+      - name: Resolver el reparto
+        id: reparto
+        run: |
+          python etl/analisis_sensibilidad.py \
+            --puertos "${{ inputs.puertos }}" \
+            --tallas "${{ inputs.tallas }}" \
+            --plan --fichero-plan plan.json
+
+          if ! jq -e 'type == "array" and length > 0' plan.json > /dev/null; then
+            echo "::error::El reparto no es una lista JSON con puertos. Contenido:"
+            cat plan.json
+            exit 1
+          fi
+
+          MATRIZ=$(jq -c '.' plan.json)
+          echo "matriz=$MATRIZ" >> "$GITHUB_OUTPUT"
+
+          {
+            echo "## Reparto del análisis de sensibilidad"
+            echo
+            echo "| # | Puerto | Talla |"
+            echo "|---|---|---|"
+            jq -r '.[] | "| \(.indice) | \(.nombre) | \(.talla) |"' plan.json
+            echo
+            echo "Cada puerto se analiza en su propio trabajo, hasta **${{ inputs.max_paralelo }}** a la vez."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  puerto:
+    name: "OAT y ablaciones · ${{ matrix.puerto.nombre }}"
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      max-parallel: ${{ fromJson(inputs.max_paralelo) }}
+      matrix:
+        puerto: ${{ fromJson(needs.plan.outputs.matriz) }}
+
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v7
+
+      - name: Cargar configuración central (config.env)
+        run: |
+          grep -vE '^[[:space:]]*(#|$)' config.env | tr -d '\r' > /tmp/config.env
+          cat /tmp/config.env >> "$GITHUB_ENV"
+
+      - name: Configurar credenciales de AWS
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Configurar Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+          cache-dependency-path: etl/requirements.txt
+
+      - name: Instalar el stack del ETL
+        run: |
+          sudo apt-get update && sudo apt-get install -y libgdal-dev
+          pip install -r etl/requirements.txt
+
+      - name: Analizar el puerto
+        run: |
+          python etl/analisis_sensibilidad.py \
+            --puertos "${{ inputs.puertos }}" \
+            --tallas "${{ inputs.tallas }}" \
+            --indice "${{ matrix.puerto.indice }}" \
+            --salida parciales
+
+      - name: Subir el parcial
+        uses: actions/upload-artifact@v7
+        with:
+          name: parcial-${{ matrix.puerto.indice }}
+          path: parciales/
+          retention-days: 5
+
+  informe:
+    name: "Informe combinado"
+    needs: [plan, puerto]
+    if: ${{ !cancelled() && needs.plan.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v7
+
+      - name: Configurar Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+          cache-dependency-path: etl/requirements.txt
+
+      - name: Instalar el stack del ETL
+        run: |
+          sudo apt-get update && sudo apt-get install -y libgdal-dev
+          pip install -r etl/requirements.txt
+
+      - name: Cargar configuración central (config.env)
+        run: |
+          grep -vE '^[[:space:]]*(#|$)' config.env | tr -d '\r' > /tmp/config.env
+          cat /tmp/config.env >> "$GITHUB_ENV"
+
+      - name: Configurar credenciales de AWS
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Descargar los parciales
+        uses: actions/download-artifact@v7
+        with:
+          pattern: parcial-*
+          path: parciales
+
+      - name: Combinar y renderizar el informe
+        run: |
+          python etl/analisis_sensibilidad.py \
+            --combinar parciales \
+            --salida docs/sensibilidad
+
+      - name: Publicar el informe en el repositorio
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/sensibilidad
+          if git diff --cached --quiet; then
+            echo "Sin cambios en el informe."
+          else
+            git commit -m "docs: actualizar análisis de sensibilidad [skip ci]"
+            for intento in 1 2 3; do
+              if git pull --rebase --autostash origin "$GITHUB_REF_NAME" && git push; then
+                echo "Informe publicado."
+                break
+              fi
+              echo "Push rechazado, reintento $intento de 3..."
+              sleep 7
+            done
+          fi
+
+      - name: Subir el informe como artefacto
+        uses: actions/upload-artifact@v7
+        with:
+          name: informe-sensibilidad
+          path: docs/sensibilidad/

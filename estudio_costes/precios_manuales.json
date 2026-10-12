@@ -1,0 +1,95 @@
+{
+  "_instrucciones": "Precios de respaldo para los conceptos que las APIs no resuelven. 'valor_usd' se toma de la página oficial del proveedor, con su 'fuente' (URL) y 'fecha_consulta'. Si valor_usd es null, el concepto aparece como PENDIENTE en el informe.",
+  "aws": {
+    "llm_tokens_entrada_millon": {
+      "valor_usd": null,
+      "fuente": "https://aws.amazon.com/bedrock/pricing/",
+      "fecha_consulta": null,
+      "nota": "Resuelto por catálogo (Bedrock / Nova Lite). Respaldo por si el SKU cambia de nombre."
+    },
+    "llm_tokens_salida_millon": {
+      "valor_usd": null,
+      "fuente": "https://aws.amazon.com/bedrock/pricing/",
+      "fecha_consulta": null,
+      "nota": "Resuelto por catálogo (Bedrock / Nova Lite). Respaldo por si el SKU cambia de nombre."
+    }
+  },
+  "gcp": {
+    "computo_lote_vcpu_h": {
+      "valor_usd": null,
+      "fuente": "https://cloud.google.com/run/pricing",
+      "fecha_consulta": null
+    },
+    "computo_lote_gb_h": {
+      "valor_usd": null,
+      "fuente": "https://cloud.google.com/run/pricing",
+      "fecha_consulta": null
+    },
+    "computo_web_vcpu_h": {
+      "valor_usd": null,
+      "fuente": "https://cloud.google.com/run/pricing",
+      "fecha_consulta": null
+    },
+    "computo_web_gb_h": {
+      "valor_usd": null,
+      "fuente": "https://cloud.google.com/run/pricing",
+      "fecha_consulta": null
+    },
+    "almacenamiento_gb_mes": {
+      "valor_usd": null,
+      "fuente": "https://cloud.google.com/storage/pricing",
+      "fecha_consulta": null
+    },
+    "salida_internet_gb": {
+      "valor_usd": null,
+      "fuente": "https://cloud.google.com/storage/pricing#network-pricing",
+      "fecha_consulta": null
+    },
+    "peticiones_escritura_millar": {
+      "valor_usd": null,
+      "fuente": "https://cloud.google.com/storage/pricing#operations-pricing",
+      "fecha_consulta": null
+    },
+    "peticiones_lectura_millar": {
+      "valor_usd": null,
+      "fuente": "https://cloud.google.com/storage/pricing#operations-pricing",
+      "fecha_consulta": null
+    },
+    "registro_contenedores_gb_mes": {
+      "valor_usd": null,
+      "fuente": "https://cloud.google.com/artifact-registry/pricing",
+      "fecha_consulta": null
+    },
+    "logs_gb": {
+      "valor_usd": null,
+      "fuente": "https://cloud.google.com/stackdriver/pricing",
+      "fecha_consulta": null
+    },
+    "llm_tokens_entrada_millon": {
+      "valor_usd": 0.1,
+      "fuente": "https://ai.google.dev/gemini-api/docs/pricing",
+      "fecha_consulta": "2026-08-30",
+      "nota": "Entrada de texto por millón de tokens de gemini-2.5-flash-lite, el modelo desplegado (nivel de pago). La página publica 0,10 $ para texto/imagen/vídeo y 0,30 $ para audio; el copiloto solo envía texto. La Cloud Billing API no incluye las tarifas de la Gemini API."
+    },
+    "llm_tokens_salida_millon": {
+      "valor_usd": 0.4,
+      "fuente": "https://ai.google.dev/gemini-api/docs/pricing",
+      "fecha_consulta": "2026-08-30",
+      "nota": "Salida por millón de tokens de gemini-2.5-flash-lite (nivel de pago)."
+    }
+  },
+  "azure": {
+    "llm_tokens_entrada_millon": {
+      "valor_usd": null,
+      "fuente": "https://azure.microsoft.com/pricing/details/cognitive-services/openai-service/",
+      "fecha_consulta": null,
+      "nota": "Resuelto por catálogo (Foundry Models / gpt-4.1-nano). Respaldo por si el SKU cambia de nombre."
+    },
+    "llm_tokens_salida_millon": {
+      "valor_usd": null,
+      "fuente": "https://azure.microsoft.com/pricing/details/cognitive-services/openai-service/",
+      "fecha_consulta": null,
+      "nota": "Resuelto por catálogo (Foundry Models / gpt-4.1-nano). Respaldo por si el SKU cambia de nombre."
+    }
+  }
+}

@@ -1,0 +1,221 @@
+name: "Pipeline completo: de cero a informes"
+
+on:
+  workflow_dispatch:
+    inputs:
+      desplegar:
+        description: "Desplegar la infraestructura antes de empezar"
+        required: false
+        default: true
+        type: boolean
+      construir_imagen:
+        description: "Reconstruir la imagen del ETL en ECR (necesario tras destruir la infraestructura)"
+        required: false
+        default: true
+        type: boolean
+      n_puertos:
+        description: "Puertos a procesar (0 = catálogo completo)"
+        required: true
+        default: "40"
+      semilla:
+        description: "Semilla del muestreo"
+        required: true
+        default: "42"
+      puertos_fijos:
+        description: "portid que entran siempre, además del sorteo (casos de estudio)"
+        required: false
+        default: "port387,port103,port1350,port1160,port843,port446,port794,port1114,port57,port311,port664"
+      timeout_etl_minutos:
+        description: "Límite de espera del ETL en minutos"
+        required: false
+        default: "300"
+      umbral_fallos_pct:
+        description: "Porcentaje máximo de puertos fallidos"
+        required: false
+        default: "25"
+      medir_volumen_puertos:
+        description: "Puertos a medir en detalle (0 = solo el tamaño del universo de datos)"
+        required: false
+        default: "3"
+      sensibilidad_puertos:
+        description: "Puertos del análisis de sensibilidad (0 = no ejecutarlo)"
+        required: false
+        default: "12"
+      sensibilidad_max_paralelo:
+        description: "Puertos de sensibilidad analizados en paralelo"
+        required: false
+        default: "12"
+      destruir_al_final:
+        description: "Destruir la infraestructura al terminar (borra los datos de S3)"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pipeline-completo
+  cancel-in-progress: false
+
+jobs:
+  cobertura:
+    name: "1 · Cobertura del dataset del FMI"
+    uses: ./.github/workflows/cobertura.yml
+    with:
+      ambito: catalogo
+    secrets: inherit
+
+  despliegue:
+    name: "1 · Infraestructura"
+    if: ${{ inputs.desplegar }}
+    uses: ./.github/workflows/terraform.yml
+    with:
+      cloud_run_ingress: INGRESS_TRAFFIC_ALL
+    secrets: inherit
+
+  imagen:
+    name: "2 · Imagen del ETL en ECR"
+    needs: despliegue
+    if: >-
+      ${{ !cancelled()
+          && inputs.construir_imagen
+          && (needs.despliegue.result == 'success' || needs.despliegue.result == 'skipped') }}
+    uses: ./.github/workflows/compilar_docker_base.yml
+    secrets: inherit
+
+  etl:
+    name: "3 · ETL en AWS Batch (con espera)"
+    needs: [despliegue, cobertura, imagen]
+    if: >-
+      ${{ !cancelled()
+          && (needs.despliegue.result == 'success' || needs.despliegue.result == 'skipped')
+          && (needs.imagen.result == 'success' || needs.imagen.result == 'skipped') }}
+    uses: ./.github/workflows/etl_python.yml
+    with:
+      n_puertos: ${{ inputs.n_puertos }}
+      semilla: ${{ inputs.semilla }}
+      puertos_fijos: ${{ inputs.puertos_fijos }}
+      esperar: true
+      timeout_minutos: ${{ inputs.timeout_etl_minutos }}
+      umbral_fallos_pct: ${{ inputs.umbral_fallos_pct }}
+    secrets: inherit
+
+  pmtiles:
+    name: "4 · Mapa global (PMTiles)"
+    needs: etl
+    uses: ./.github/workflows/compilar_pmtiles.yml
+    secrets: inherit
+
+  resultados:
+    name: "4 · Resultados y volumen"
+    needs: etl
+    uses: ./.github/workflows/resultados.yml
+    with:
+      medir_puertos: ${{ inputs.medir_volumen_puertos }}
+    secrets: inherit
+
+  costes:
+    name: "4 · Estudio de costes"
+    uses: ./.github/workflows/costes.yml
+    secrets: inherit
+
+  sensibilidad:
+    name: "5 · Sensibilidad y ablaciones"
+    needs: [etl, resultados]
+    if: ${{ !cancelled() && needs.resultados.result == 'success' && inputs.sensibilidad_puertos != '0' }}
+    uses: ./.github/workflows/sensibilidad.yml
+    with:
+      puertos: ${{ inputs.sensibilidad_puertos }}
+      tallas: "S,M,L"
+      max_paralelo: ${{ inputs.sensibilidad_max_paralelo }}
+    secrets: inherit
+
+  destruir:
+    name: "6 · Destruir la infraestructura"
+    needs: [pmtiles, resultados, costes, sensibilidad]
+    if: >-
+      ${{ inputs.destruir_al_final
+          && needs.pmtiles.result == 'success'
+          && needs.resultados.result == 'success'
+          && (needs.sensibilidad.result == 'success' || needs.sensibilidad.result == 'skipped') }}
+    uses: ./.github/workflows/destroy.yml
+    secrets: inherit
+
+  resumen:
+    name: "Resumen de la ejecución"
+    needs: [cobertura, despliegue, imagen, etl, pmtiles, resultados, costes, sensibilidad, destruir]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Escribir el resumen
+        env:
+          R_COBERTURA: ${{ needs.cobertura.result }}
+          R_DESPLIEGUE: ${{ needs.despliegue.result }}
+          R_IMAGEN: ${{ needs.imagen.result }}
+          R_ETL: ${{ needs.etl.result }}
+          R_PMTILES: ${{ needs.pmtiles.result }}
+          R_RESULTADOS: ${{ needs.resultados.result }}
+          R_COSTES: ${{ needs.costes.result }}
+          R_SENSIBILIDAD: ${{ needs.sensibilidad.result }}
+          R_DESTRUIR: ${{ needs.destruir.result }}
+          PUERTOS: ${{ inputs.n_puertos }}
+          SEMILLA: ${{ inputs.semilla }}
+          DESTRUIR_PEDIDO: ${{ inputs.destruir_al_final }}
+        run: |
+          icono() {
+            case "$1" in
+              success)  echo "correcto" ;;
+              failure)  echo "fallido" ;;
+              cancelled) echo "cancelado" ;;
+              skipped)  echo "no ejecutado" ;;
+              *)        echo "· $1" ;;
+            esac
+          }
+
+          {
+            echo "## Pipeline completo"
+            echo
+            echo "Muestra solicitada: **${PUERTOS} puertos** · semilla ${SEMILLA}"
+            echo
+            echo "| Paso | Resultado |"
+            echo "|---|---|"
+            echo "| 1 · Cobertura del FMI | $(icono "$R_COBERTURA") |"
+            echo "| 1 · Infraestructura | $(icono "$R_DESPLIEGUE") |"
+            echo "| 2 · Imagen del ETL en ECR | $(icono "$R_IMAGEN") |"
+            echo "| 3 · ETL en AWS Batch | $(icono "$R_ETL") |"
+            echo "| 4 · Mapa global PMTiles | $(icono "$R_PMTILES") |"
+            echo "| 4 · Resultados y volumen | $(icono "$R_RESULTADOS") |"
+            echo "| 4 · Estudio de costes | $(icono "$R_COSTES") |"
+            echo "| 5 · Sensibilidad | $(icono "$R_SENSIBILIDAD") |"
+            echo "| 6 · Destruir | $(icono "$R_DESTRUIR") |"
+            echo
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$R_ETL" != "success" ]; then
+            {
+              echo "> El ETL no terminó correctamente; se omiten el mapa y los informes."
+              echo "> Revisar los logs de CloudWatch."
+              echo
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          if [ "$DESTRUIR_PEDIDO" = "true" ] && [ "$R_DESTRUIR" != "success" ]; then
+            {
+              echo "> La infraestructura no se ha destruido porque algún paso falló."
+              echo "> Lanzar *Destruir Infraestructura* manualmente al terminar."
+              echo
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Fallar si algún paso esencial no salió bien
+        if: >-
+          ${{ needs.etl.result == 'failure'
+              || needs.pmtiles.result == 'failure'
+              || needs.resultados.result == 'failure'
+              || needs.sensibilidad.result == 'failure'
+              || needs.despliegue.result == 'failure'
+              || needs.imagen.result == 'failure' }}
+        run: |
+          echo "::error::La tubería no completó todos sus pasos."
+          exit 1

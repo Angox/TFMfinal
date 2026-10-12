@@ -1,0 +1,787 @@
+{
+  "fecha": "2026-08-31",
+  "descuento_interrumpible": {
+    "aws": 0.7,
+    "gcp": 0.0,
+    "azure": 0.0
+  },
+  "regiones": {
+    "aws": "us-west-2",
+    "gcp": "europe-southwest1",
+    "azure": "westeurope"
+  },
+  "perfil": {
+    "puertos_procesados_mes": 40,
+    "puertos_por_talla": {
+      "S": 30,
+      "M": 8,
+      "L": 2
+    },
+    "horas_contenedor_etl": 27.0,
+    "vcpu_hora_lote": 47.0,
+    "gb_hora_lote": 188.0,
+    "fraccion_interrumpible": 1.0
+  },
+  "consumos": {
+    "computo_lote_vcpu_h": 47.0,
+    "computo_lote_gb_h": 188.0,
+    "computo_web_vcpu_h": 480.0,
+    "computo_web_gb_h": 960.0,
+    "almacenamiento_gb_mes": 60.0,
+    "salida_internet_gb": 40.0,
+    "peticiones_escritura_millar": 60.0,
+    "peticiones_lectura_millar": 400.0,
+    "registro_contenedores_gb_mes": 6.0,
+    "logs_gb": 2.0,
+    "llm_tokens_entrada_millon": 4.0,
+    "llm_tokens_salida_millon": 0.5
+  },
+  "resultados": {
+    "aws": {
+      "filas": [
+        {
+          "concepto": "computo_lote_vcpu_h",
+          "cantidad": 47.0,
+          "unidad": "vCPU·h",
+          "precio_lista": 0.04048,
+          "precio_unitario": 0.012144000000000002,
+          "descuento_aplicado": 0.7,
+          "coste": 0.5708,
+          "origen": "api",
+          "referencia": "AmazonECS/EKCCQUSFCBDDTKTS",
+          "nota": "AWS Fargate - vCPU  - US West 2 (Oregon)"
+        },
+        {
+          "concepto": "computo_lote_gb_h",
+          "cantidad": 188.0,
+          "unidad": "GB·h",
+          "precio_lista": 0.004445,
+          "precio_unitario": 0.0013335000000000003,
+          "descuento_aplicado": 0.7,
+          "coste": 0.2507,
+          "origen": "api",
+          "referencia": "AmazonECS/NTC2QZFJW79R5XVK",
+          "nota": "AWS Fargate - Memory  - US West 2 (Oregon)"
+        },
+        {
+          "concepto": "computo_web_vcpu_h",
+          "cantidad": 480.0,
+          "unidad": "vCPU·h",
+          "precio_lista": 0.04048,
+          "precio_unitario": 0.04048,
+          "descuento_aplicado": 0.0,
+          "coste": 19.4304,
+          "origen": "api",
+          "referencia": "AmazonECS/EKCCQUSFCBDDTKTS",
+          "nota": "AWS Fargate - vCPU  - US West 2 (Oregon)"
+        },
+        {
+          "concepto": "computo_web_gb_h",
+          "cantidad": 960.0,
+          "unidad": "GB·h",
+          "precio_lista": 0.004445,
+          "precio_unitario": 0.004445,
+          "descuento_aplicado": 0.0,
+          "coste": 4.2672,
+          "origen": "api",
+          "referencia": "AmazonECS/NTC2QZFJW79R5XVK",
+          "nota": "AWS Fargate - Memory  - US West 2 (Oregon)"
+        },
+        {
+          "concepto": "almacenamiento_gb_mes",
+          "cantidad": 60.0,
+          "unidad": "GB·mes",
+          "precio_lista": 0.023,
+          "precio_unitario": 0.023,
+          "descuento_aplicado": 0.0,
+          "coste": 1.38,
+          "origen": "api",
+          "referencia": "AmazonS3/Z3FQZG73HYSPVABR",
+          "nota": "$0.023 per GB - first 50 TB / month of storage used"
+        },
+        {
+          "concepto": "salida_internet_gb",
+          "cantidad": 40.0,
+          "unidad": "GB",
+          "precio_lista": 0.09,
+          "precio_unitario": 0.09,
+          "descuento_aplicado": 0.0,
+          "coste": 3.6,
+          "origen": "api",
+          "referencia": "AWSDataTransfer/5M4327XEUKBBTWAT",
+          "nota": "$0.090 per GB - first 10 TB / month data transfer out beyond the global free tier"
+        },
+        {
+          "concepto": "peticiones_escritura_millar",
+          "cantidad": 60.0,
+          "unidad": "millar",
+          "precio_lista": 0.005,
+          "precio_unitario": 0.005,
+          "descuento_aplicado": 0.0,
+          "coste": 0.3,
+          "origen": "api",
+          "referencia": "AmazonS3/D4PMUVH6F64HK2D6",
+          "nota": "$0.005 per 1,000 PUT, COPY, POST, or LIST requests"
+        },
+        {
+          "concepto": "peticiones_lectura_millar",
+          "cantidad": 400.0,
+          "unidad": "millar",
+          "precio_lista": 0.00039999999999999996,
+          "precio_unitario": 0.00039999999999999996,
+          "descuento_aplicado": 0.0,
+          "coste": 0.16,
+          "origen": "api",
+          "referencia": "AmazonS3/E77AQEM2DC4VV3FC",
+          "nota": "$0.004 per 10,000 GET and all other requests"
+        },
+        {
+          "concepto": "registro_contenedores_gb_mes",
+          "cantidad": 6.0,
+          "unidad": "GB·mes",
+          "precio_lista": 0.1,
+          "precio_unitario": 0.1,
+          "descuento_aplicado": 0.0,
+          "coste": 0.6,
+          "origen": "api",
+          "referencia": "AmazonECR/2BSQ677HKG6WUUKA",
+          "nota": "$0.10 per GB-month of data storage"
+        },
+        {
+          "concepto": "logs_gb",
+          "cantidad": 2.0,
+          "unidad": "GB",
+          "precio_lista": 0.5,
+          "precio_unitario": 0.5,
+          "descuento_aplicado": 0.0,
+          "coste": 1.0,
+          "origen": "api",
+          "referencia": "AmazonCloudWatch/CWY7X4MZ4F3MP5SD",
+          "nota": "$0.50 per GB custom log data ingested in Standard log class - US West (Oregon)"
+        },
+        {
+          "concepto": "llm_tokens_entrada_millon",
+          "cantidad": 4.0,
+          "unidad": "millón de tokens",
+          "precio_lista": 0.06,
+          "precio_unitario": 0.06,
+          "descuento_aplicado": 0.0,
+          "coste": 0.24,
+          "origen": "api",
+          "referencia": "AmazonBedrock/HJN3FHKSCN79D72P",
+          "nota": "$0.00006 per 1K tokens for Nova Lite-input-tokens in us-west-2 (Oregon)"
+        },
+        {
+          "concepto": "llm_tokens_salida_millon",
+          "cantidad": 0.5,
+          "unidad": "millón de tokens",
+          "precio_lista": 0.24,
+          "precio_unitario": 0.24,
+          "descuento_aplicado": 0.0,
+          "coste": 0.12,
+          "origen": "api",
+          "referencia": "AmazonBedrock/KCCADSF94FEZMYTQ",
+          "nota": "$0.00024 per 1K tokens for Nova Lite-output-tokens in us-west-2 (Oregon)"
+        }
+      ],
+      "total_usd": 31.92,
+      "conceptos_pendientes": 0
+    },
+    "gcp": {
+      "filas": [
+        {
+          "concepto": "computo_lote_vcpu_h",
+          "cantidad": 47.0,
+          "unidad": "vCPU·h",
+          "precio_lista": 0.0648,
+          "precio_unitario": 0.0648,
+          "descuento_aplicado": 0.0,
+          "coste": 3.0456,
+          "origen": "api",
+          "referencia": "4135-2C0E-5486",
+          "nota": "Jobs CPU in europe-southwest1"
+        },
+        {
+          "concepto": "computo_lote_gb_h",
+          "cantidad": 188.0,
+          "unidad": "GB·h",
+          "precio_lista": 0.0072,
+          "precio_unitario": 0.0072,
+          "descuento_aplicado": 0.0,
+          "coste": 1.3536,
+          "origen": "api",
+          "referencia": "32FA-1494-0648",
+          "nota": "Jobs Memory in europe-southwest1"
+        },
+        {
+          "concepto": "computo_web_vcpu_h",
+          "cantidad": 480.0,
+          "unidad": "vCPU·h",
+          "precio_lista": 0.0864,
+          "precio_unitario": 0.0864,
+          "descuento_aplicado": 0.0,
+          "coste": 41.472,
+          "origen": "api",
+          "referencia": "4856-B847-F1EB",
+          "nota": "Services CPU (Request-based billing)"
+        },
+        {
+          "concepto": "computo_web_gb_h",
+          "cantidad": 960.0,
+          "unidad": "GB·h",
+          "precio_lista": 0.009000000000000001,
+          "precio_unitario": 0.009000000000000001,
+          "descuento_aplicado": 0.0,
+          "coste": 8.64,
+          "origen": "api",
+          "referencia": "02A2-9231-36A6",
+          "nota": "Services Memory (Request-based billing)"
+        },
+        {
+          "concepto": "almacenamiento_gb_mes",
+          "cantidad": 60.0,
+          "unidad": "GB·mes",
+          "precio_lista": 0.023,
+          "precio_unitario": 0.023,
+          "descuento_aplicado": 0.0,
+          "coste": 1.38,
+          "origen": "api",
+          "referencia": "5596-85FF-7F53",
+          "nota": "Standard Storage Madrid"
+        },
+        {
+          "concepto": "salida_internet_gb",
+          "cantidad": 40.0,
+          "unidad": "GB",
+          "precio_lista": 0.12,
+          "precio_unitario": 0.12,
+          "descuento_aplicado": 0.0,
+          "coste": 4.8,
+          "origen": "api",
+          "referencia": "22EB-AAE8-FBCD",
+          "nota": "Download Worldwide Destinations (excluding Asia & Australia)"
+        },
+        {
+          "concepto": "peticiones_escritura_millar",
+          "cantidad": 60.0,
+          "unidad": "millar",
+          "precio_lista": 0.005,
+          "precio_unitario": 0.005,
+          "descuento_aplicado": 0.0,
+          "coste": 0.3,
+          "origen": "api",
+          "referencia": "4DBF-185F-A415",
+          "nota": "Regional Standard Class A Operations"
+        },
+        {
+          "concepto": "peticiones_lectura_millar",
+          "cantidad": 400.0,
+          "unidad": "millar",
+          "precio_lista": 0.00039999999999999996,
+          "precio_unitario": 0.00039999999999999996,
+          "descuento_aplicado": 0.0,
+          "coste": 0.16,
+          "origen": "api",
+          "referencia": "7870-010B-2763",
+          "nota": "Regional Standard Class B Operations"
+        },
+        {
+          "concepto": "registro_contenedores_gb_mes",
+          "cantidad": 6.0,
+          "unidad": "GB·mes",
+          "precio_lista": 0.1,
+          "precio_unitario": 0.1,
+          "descuento_aplicado": 0.0,
+          "coste": 0.6,
+          "origen": "api",
+          "referencia": "8502-299A-ABAF",
+          "nota": "Artifact Registry Storage"
+        },
+        {
+          "concepto": "logs_gb",
+          "cantidad": 2.0,
+          "unidad": "GB",
+          "precio_lista": 0.5,
+          "precio_unitario": 0.5,
+          "descuento_aplicado": 0.0,
+          "coste": 1.0,
+          "origen": "api",
+          "referencia": "143F-A1B0-E0BE",
+          "nota": "Log Storage cost"
+        },
+        {
+          "concepto": "llm_tokens_entrada_millon",
+          "cantidad": 4.0,
+          "unidad": "millón de tokens",
+          "precio_lista": 0.1,
+          "precio_unitario": 0.1,
+          "descuento_aplicado": 0.0,
+          "coste": 0.4,
+          "origen": "manual",
+          "referencia": "https://ai.google.dev/gemini-api/docs/pricing",
+          "nota": "consultado el 2026-08-30"
+        },
+        {
+          "concepto": "llm_tokens_salida_millon",
+          "cantidad": 0.5,
+          "unidad": "millón de tokens",
+          "precio_lista": 0.4,
+          "precio_unitario": 0.4,
+          "descuento_aplicado": 0.0,
+          "coste": 0.2,
+          "origen": "manual",
+          "referencia": "https://ai.google.dev/gemini-api/docs/pricing",
+          "nota": "consultado el 2026-08-30"
+        }
+      ],
+      "total_usd": 63.35,
+      "conceptos_pendientes": 0
+    },
+    "azure": {
+      "filas": [
+        {
+          "concepto": "computo_lote_vcpu_h",
+          "cantidad": 47.0,
+          "unidad": "vCPU·h",
+          "precio_lista": 0.1224,
+          "precio_unitario": 0.1224,
+          "descuento_aplicado": 0.0,
+          "coste": 5.7528,
+          "origen": "api",
+          "referencia": "0426badc-b719-5201-b141-b2d5c4943b7d",
+          "nota": "Azure Container Apps / Standard vCPU Active Usage"
+        },
+        {
+          "concepto": "computo_lote_gb_h",
+          "cantidad": 188.0,
+          "unidad": "GB·h",
+          "precio_lista": 0.0144,
+          "precio_unitario": 0.0144,
+          "descuento_aplicado": 0.0,
+          "coste": 2.7072,
+          "origen": "api",
+          "referencia": "3ba64b1c-cb46-5ee0-b086-a68736392ac0",
+          "nota": "Azure Container Apps / Standard Memory Active Usage"
+        },
+        {
+          "concepto": "computo_web_vcpu_h",
+          "cantidad": 480.0,
+          "unidad": "vCPU·h",
+          "precio_lista": 0.1224,
+          "precio_unitario": 0.1224,
+          "descuento_aplicado": 0.0,
+          "coste": 58.752,
+          "origen": "api",
+          "referencia": "0426badc-b719-5201-b141-b2d5c4943b7d",
+          "nota": "Azure Container Apps / Standard vCPU Active Usage"
+        },
+        {
+          "concepto": "computo_web_gb_h",
+          "cantidad": 960.0,
+          "unidad": "GB·h",
+          "precio_lista": 0.0144,
+          "precio_unitario": 0.0144,
+          "descuento_aplicado": 0.0,
+          "coste": 13.824,
+          "origen": "api",
+          "referencia": "3ba64b1c-cb46-5ee0-b086-a68736392ac0",
+          "nota": "Azure Container Apps / Standard Memory Active Usage"
+        },
+        {
+          "concepto": "almacenamiento_gb_mes",
+          "cantidad": 60.0,
+          "unidad": "GB·mes",
+          "precio_lista": 0.0196,
+          "precio_unitario": 0.0196,
+          "descuento_aplicado": 0.0,
+          "coste": 1.176,
+          "origen": "api",
+          "referencia": "10e5ee74-8fd6-4972-909f-65a83f92f0ce",
+          "nota": "Blob Storage / Hot LRS Data Stored"
+        },
+        {
+          "concepto": "salida_internet_gb",
+          "cantidad": 40.0,
+          "unidad": "GB",
+          "precio_lista": 0.08,
+          "precio_unitario": 0.08,
+          "descuento_aplicado": 0.0,
+          "coste": 3.2,
+          "origen": "api",
+          "referencia": "6bd64e8e-5cb9-49d3-893d-800c9b28dca3",
+          "nota": "Bandwidth - Routing Preference: Internet / Standard Data Transfer Out"
+        },
+        {
+          "concepto": "peticiones_escritura_millar",
+          "cantidad": 60.0,
+          "unidad": "millar",
+          "precio_lista": 0.0054,
+          "precio_unitario": 0.0054,
+          "descuento_aplicado": 0.0,
+          "coste": 0.324,
+          "origen": "api",
+          "referencia": "15adff7b-0dab-4c00-889d-caa6d4fb31bb",
+          "nota": "Blob Storage / Hot LRS Write Operations"
+        },
+        {
+          "concepto": "peticiones_lectura_millar",
+          "cantidad": 400.0,
+          "unidad": "millar",
+          "precio_lista": 0.00043,
+          "precio_unitario": 0.00043,
+          "descuento_aplicado": 0.0,
+          "coste": 0.172,
+          "origen": "api",
+          "referencia": "36c961e5-3c53-4481-b339-a10c6fe0f491",
+          "nota": "Blob Storage / Hot Read Operations"
+        },
+        {
+          "concepto": "registro_contenedores_gb_mes",
+          "cantidad": 6.0,
+          "unidad": "GB·mes",
+          "precio_lista": 0.1,
+          "precio_unitario": 0.1,
+          "descuento_aplicado": 0.0,
+          "coste": 0.6,
+          "origen": "api",
+          "referencia": "6331e61c-1b44-4a10-9fb1-e9c0b470c4d5",
+          "nota": "Container Registry / Data Stored"
+        },
+        {
+          "concepto": "logs_gb",
+          "cantidad": 2.0,
+          "unidad": "GB",
+          "precio_lista": 2.99,
+          "precio_unitario": 2.99,
+          "descuento_aplicado": 0.0,
+          "coste": 5.98,
+          "origen": "api",
+          "referencia": "e5626349-2f1f-4563-babc-dc9219884716",
+          "nota": "Log Analytics / Analytics Logs Data Ingestion"
+        },
+        {
+          "concepto": "llm_tokens_entrada_millon",
+          "cantidad": 4.0,
+          "unidad": "millón de tokens",
+          "precio_lista": 0.1,
+          "precio_unitario": 0.1,
+          "descuento_aplicado": 0.0,
+          "coste": 0.4,
+          "origen": "api",
+          "referencia": "1effcc69-0db0-5dac-bae3-2c535666a69a",
+          "nota": "Azure OpenAI / gpt 4.1 nano Inp glbl Tokens"
+        },
+        {
+          "concepto": "llm_tokens_salida_millon",
+          "cantidad": 0.5,
+          "unidad": "millón de tokens",
+          "precio_lista": 0.4,
+          "precio_unitario": 0.4,
+          "descuento_aplicado": 0.0,
+          "coste": 0.2,
+          "origen": "api",
+          "referencia": "23ecd3a3-fb6d-5e97-8366-7d85b9a570bc",
+          "nota": "Azure OpenAI / gpt 4.1 nano Outp glbl Tokens"
+        }
+      ],
+      "total_usd": 93.09,
+      "conceptos_pendientes": 0
+    }
+  },
+  "precios": {
+    "aws": {
+      "computo_lote_vcpu_h": {
+        "valor_usd": 0.04048,
+        "unidad": "vCPU·h",
+        "origen": "api",
+        "referencia": "AmazonECS/EKCCQUSFCBDDTKTS",
+        "unidad_facturacion": "hours",
+        "nota": "AWS Fargate - vCPU  - US West 2 (Oregon)"
+      },
+      "computo_lote_gb_h": {
+        "valor_usd": 0.004445,
+        "unidad": "GB·h",
+        "origen": "api",
+        "referencia": "AmazonECS/NTC2QZFJW79R5XVK",
+        "unidad_facturacion": "hours",
+        "nota": "AWS Fargate - Memory  - US West 2 (Oregon)"
+      },
+      "computo_web_vcpu_h": {
+        "valor_usd": 0.04048,
+        "unidad": "vCPU·h",
+        "origen": "api",
+        "referencia": "AmazonECS/EKCCQUSFCBDDTKTS",
+        "unidad_facturacion": "hours",
+        "nota": "AWS Fargate - vCPU  - US West 2 (Oregon)"
+      },
+      "computo_web_gb_h": {
+        "valor_usd": 0.004445,
+        "unidad": "GB·h",
+        "origen": "api",
+        "referencia": "AmazonECS/NTC2QZFJW79R5XVK",
+        "unidad_facturacion": "hours",
+        "nota": "AWS Fargate - Memory  - US West 2 (Oregon)"
+      },
+      "almacenamiento_gb_mes": {
+        "valor_usd": 0.023,
+        "unidad": "GB·mes",
+        "origen": "api",
+        "referencia": "AmazonS3/Z3FQZG73HYSPVABR",
+        "unidad_facturacion": "GB-Mo",
+        "nota": "$0.023 per GB - first 50 TB / month of storage used"
+      },
+      "salida_internet_gb": {
+        "valor_usd": 0.09,
+        "unidad": "GB",
+        "origen": "api",
+        "referencia": "AWSDataTransfer/5M4327XEUKBBTWAT",
+        "unidad_facturacion": "GB",
+        "nota": "$0.090 per GB - first 10 TB / month data transfer out beyond the global free tier"
+      },
+      "peticiones_escritura_millar": {
+        "valor_usd": 0.005,
+        "unidad": "millar",
+        "origen": "api",
+        "referencia": "AmazonS3/D4PMUVH6F64HK2D6",
+        "unidad_facturacion": "Requests",
+        "nota": "$0.005 per 1,000 PUT, COPY, POST, or LIST requests"
+      },
+      "peticiones_lectura_millar": {
+        "valor_usd": 0.00039999999999999996,
+        "unidad": "millar",
+        "origen": "api",
+        "referencia": "AmazonS3/E77AQEM2DC4VV3FC",
+        "unidad_facturacion": "Requests",
+        "nota": "$0.004 per 10,000 GET and all other requests"
+      },
+      "registro_contenedores_gb_mes": {
+        "valor_usd": 0.1,
+        "unidad": "GB·mes",
+        "origen": "api",
+        "referencia": "AmazonECR/2BSQ677HKG6WUUKA",
+        "unidad_facturacion": "GB-Mo",
+        "nota": "$0.10 per GB-month of data storage"
+      },
+      "logs_gb": {
+        "valor_usd": 0.5,
+        "unidad": "GB",
+        "origen": "api",
+        "referencia": "AmazonCloudWatch/CWY7X4MZ4F3MP5SD",
+        "unidad_facturacion": "GB",
+        "nota": "$0.50 per GB custom log data ingested in Standard log class - US West (Oregon)"
+      },
+      "llm_tokens_entrada_millon": {
+        "valor_usd": 0.06,
+        "unidad": "millón de tokens",
+        "origen": "api",
+        "referencia": "AmazonBedrock/HJN3FHKSCN79D72P",
+        "unidad_facturacion": "1K tokens",
+        "nota": "$0.00006 per 1K tokens for Nova Lite-input-tokens in us-west-2 (Oregon)"
+      },
+      "llm_tokens_salida_millon": {
+        "valor_usd": 0.24,
+        "unidad": "millón de tokens",
+        "origen": "api",
+        "referencia": "AmazonBedrock/KCCADSF94FEZMYTQ",
+        "unidad_facturacion": "1K tokens",
+        "nota": "$0.00024 per 1K tokens for Nova Lite-output-tokens in us-west-2 (Oregon)"
+      }
+    },
+    "gcp": {
+      "computo_lote_vcpu_h": {
+        "valor_usd": 0.0648,
+        "unidad": "vCPU·h",
+        "origen": "api",
+        "referencia": "4135-2C0E-5486",
+        "unidad_facturacion": "second",
+        "nota": "Jobs CPU in europe-southwest1"
+      },
+      "computo_lote_gb_h": {
+        "valor_usd": 0.0072,
+        "unidad": "GB·h",
+        "origen": "api",
+        "referencia": "32FA-1494-0648",
+        "unidad_facturacion": "gibibyte second",
+        "nota": "Jobs Memory in europe-southwest1"
+      },
+      "computo_web_vcpu_h": {
+        "valor_usd": 0.0864,
+        "unidad": "vCPU·h",
+        "origen": "api",
+        "referencia": "4856-B847-F1EB",
+        "unidad_facturacion": "second",
+        "nota": "Services CPU (Request-based billing)"
+      },
+      "computo_web_gb_h": {
+        "valor_usd": 0.009000000000000001,
+        "unidad": "GB·h",
+        "origen": "api",
+        "referencia": "02A2-9231-36A6",
+        "unidad_facturacion": "gibibyte second",
+        "nota": "Services Memory (Request-based billing)"
+      },
+      "almacenamiento_gb_mes": {
+        "valor_usd": 0.023,
+        "unidad": "GB·mes",
+        "origen": "api",
+        "referencia": "5596-85FF-7F53",
+        "unidad_facturacion": "gibibyte month",
+        "nota": "Standard Storage Madrid"
+      },
+      "salida_internet_gb": {
+        "valor_usd": 0.12,
+        "unidad": "GB",
+        "origen": "api",
+        "referencia": "22EB-AAE8-FBCD",
+        "unidad_facturacion": "gibibyte",
+        "nota": "Download Worldwide Destinations (excluding Asia & Australia)"
+      },
+      "peticiones_escritura_millar": {
+        "valor_usd": 0.005,
+        "unidad": "millar",
+        "origen": "api",
+        "referencia": "4DBF-185F-A415",
+        "unidad_facturacion": "count",
+        "nota": "Regional Standard Class A Operations"
+      },
+      "peticiones_lectura_millar": {
+        "valor_usd": 0.00039999999999999996,
+        "unidad": "millar",
+        "origen": "api",
+        "referencia": "7870-010B-2763",
+        "unidad_facturacion": "count",
+        "nota": "Regional Standard Class B Operations"
+      },
+      "registro_contenedores_gb_mes": {
+        "valor_usd": 0.1,
+        "unidad": "GB·mes",
+        "origen": "api",
+        "referencia": "8502-299A-ABAF",
+        "unidad_facturacion": "gibibyte month",
+        "nota": "Artifact Registry Storage"
+      },
+      "logs_gb": {
+        "valor_usd": 0.5,
+        "unidad": "GB",
+        "origen": "api",
+        "referencia": "143F-A1B0-E0BE",
+        "unidad_facturacion": "gibibyte",
+        "nota": "Log Storage cost"
+      },
+      "llm_tokens_entrada_millon": {
+        "valor_usd": 0.1,
+        "unidad": "millón de tokens",
+        "origen": "manual",
+        "referencia": "https://ai.google.dev/gemini-api/docs/pricing",
+        "unidad_facturacion": "",
+        "nota": "consultado el 2026-08-30"
+      },
+      "llm_tokens_salida_millon": {
+        "valor_usd": 0.4,
+        "unidad": "millón de tokens",
+        "origen": "manual",
+        "referencia": "https://ai.google.dev/gemini-api/docs/pricing",
+        "unidad_facturacion": "",
+        "nota": "consultado el 2026-08-30"
+      }
+    },
+    "azure": {
+      "computo_lote_vcpu_h": {
+        "valor_usd": 0.1224,
+        "unidad": "vCPU·h",
+        "origen": "api",
+        "referencia": "0426badc-b719-5201-b141-b2d5c4943b7d",
+        "unidad_facturacion": "1 Second",
+        "nota": "Azure Container Apps / Standard vCPU Active Usage"
+      },
+      "computo_lote_gb_h": {
+        "valor_usd": 0.0144,
+        "unidad": "GB·h",
+        "origen": "api",
+        "referencia": "3ba64b1c-cb46-5ee0-b086-a68736392ac0",
+        "unidad_facturacion": "1 GiB Second",
+        "nota": "Azure Container Apps / Standard Memory Active Usage"
+      },
+      "computo_web_vcpu_h": {
+        "valor_usd": 0.1224,
+        "unidad": "vCPU·h",
+        "origen": "api",
+        "referencia": "0426badc-b719-5201-b141-b2d5c4943b7d",
+        "unidad_facturacion": "1 Second",
+        "nota": "Azure Container Apps / Standard vCPU Active Usage"
+      },
+      "computo_web_gb_h": {
+        "valor_usd": 0.0144,
+        "unidad": "GB·h",
+        "origen": "api",
+        "referencia": "3ba64b1c-cb46-5ee0-b086-a68736392ac0",
+        "unidad_facturacion": "1 GiB Second",
+        "nota": "Azure Container Apps / Standard Memory Active Usage"
+      },
+      "almacenamiento_gb_mes": {
+        "valor_usd": 0.0196,
+        "unidad": "GB·mes",
+        "origen": "api",
+        "referencia": "10e5ee74-8fd6-4972-909f-65a83f92f0ce",
+        "unidad_facturacion": "1 GB/Month",
+        "nota": "Blob Storage / Hot LRS Data Stored"
+      },
+      "salida_internet_gb": {
+        "valor_usd": 0.08,
+        "unidad": "GB",
+        "origen": "api",
+        "referencia": "6bd64e8e-5cb9-49d3-893d-800c9b28dca3",
+        "unidad_facturacion": "1 GB",
+        "nota": "Bandwidth - Routing Preference: Internet / Standard Data Transfer Out"
+      },
+      "peticiones_escritura_millar": {
+        "valor_usd": 0.0054,
+        "unidad": "millar",
+        "origen": "api",
+        "referencia": "15adff7b-0dab-4c00-889d-caa6d4fb31bb",
+        "unidad_facturacion": "10K",
+        "nota": "Blob Storage / Hot LRS Write Operations"
+      },
+      "peticiones_lectura_millar": {
+        "valor_usd": 0.00043,
+        "unidad": "millar",
+        "origen": "api",
+        "referencia": "36c961e5-3c53-4481-b339-a10c6fe0f491",
+        "unidad_facturacion": "10K",
+        "nota": "Blob Storage / Hot Read Operations"
+      },
+      "registro_contenedores_gb_mes": {
+        "valor_usd": 0.1,
+        "unidad": "GB·mes",
+        "origen": "api",
+        "referencia": "6331e61c-1b44-4a10-9fb1-e9c0b470c4d5",
+        "unidad_facturacion": "1 GB/Month",
+        "nota": "Container Registry / Data Stored"
+      },
+      "logs_gb": {
+        "valor_usd": 2.99,
+        "unidad": "GB",
+        "origen": "api",
+        "referencia": "e5626349-2f1f-4563-babc-dc9219884716",
+        "unidad_facturacion": "1 GB",
+        "nota": "Log Analytics / Analytics Logs Data Ingestion"
+      },
+      "llm_tokens_entrada_millon": {
+        "valor_usd": 0.1,
+        "unidad": "millón de tokens",
+        "origen": "api",
+        "referencia": "1effcc69-0db0-5dac-bae3-2c535666a69a",
+        "unidad_facturacion": "1K",
+        "nota": "Azure OpenAI / gpt 4.1 nano Inp glbl Tokens"
+      },
+      "llm_tokens_salida_millon": {
+        "valor_usd": 0.4,
+        "unidad": "millón de tokens",
+        "origen": "api",
+        "referencia": "23ecd3a3-fb6d-5e97-8366-7d85b9a570bc",
+        "unidad_facturacion": "1K",
+        "nota": "Azure OpenAI / gpt 4.1 nano Outp glbl Tokens"
+      }
+    }
+  }
+}

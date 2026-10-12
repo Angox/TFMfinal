@@ -1,0 +1,168 @@
+{
+  "fecha": "2026-08-28",
+  "overture_release": "2026-08-19.0",
+  "universo": {
+    "por_tema": {
+      "transportation/segment": {
+        "bytes": 71816814641,
+        "gb": 71.82,
+        "ficheros": 128
+      },
+      "places/place": {
+        "bytes": 10480684059,
+        "gb": 10.48,
+        "ficheros": 16
+      },
+      "buildings/building": {
+        "bytes": 276844844710,
+        "gb": 276.84,
+        "ficheros": 512
+      },
+      "base/land_use": {
+        "bytes": 18686303456,
+        "gb": 18.69,
+        "ficheros": 32
+      }
+    },
+    "bytes": 377828646866,
+    "gb": 377.83,
+    "ficheros": 688
+  },
+  "mediciones": [
+    {
+      "puerto": "San Nicolas",
+      "lat": -33.39126531000001,
+      "lon": -60.12831101,
+      "radio_km": 50,
+      "segundos": 241.39,
+      "filas_vias": 7907,
+      "filas_industrias": 31,
+      "poligono_puerto_encontrado": false,
+      "bytes_leidos": 933309169,
+      "mb_leidos": 933.31,
+      "peticiones_http": 1531
+    },
+    {
+      "puerto": "Tocopilla",
+      "lat": -22.094652650000008,
+      "lon": -70.21203912,
+      "radio_km": 50,
+      "segundos": 11.41,
+      "filas_vias": 474,
+      "filas_industrias": 0,
+      "poligono_puerto_encontrado": false,
+      "bytes_leidos": 12871354,
+      "mb_leidos": 12.87,
+      "peticiones_http": 32
+    },
+    {
+      "puerto": "Port Vale Knights",
+      "lat": 14.921123189999989,
+      "lon": -24.50354708,
+      "radio_km": 50,
+      "segundos": 15.56,
+      "filas_vias": 415,
+      "filas_industrias": 0,
+      "poligono_puerto_encontrado": false,
+      "bytes_leidos": 8897474,
+      "mb_leidos": 8.9,
+      "peticiones_http": 46
+    },
+    {
+      "puerto": "Roseau",
+      "lat": 15.311967800000001,
+      "lon": -61.38909145000001,
+      "radio_km": 50,
+      "segundos": 21.19,
+      "filas_vias": 883,
+      "filas_industrias": 3,
+      "poligono_puerto_encontrado": false,
+      "bytes_leidos": 24784228,
+      "mb_leidos": 24.78,
+      "peticiones_http": 81
+    },
+    {
+      "puerto": "Saint George's",
+      "lat": 12.04075574,
+      "lon": -61.7479609,
+      "radio_km": 50,
+      "segundos": 19.6,
+      "filas_vias": 1108,
+      "filas_industrias": 4,
+      "poligono_puerto_encontrado": false,
+      "bytes_leidos": 15507073,
+      "mb_leidos": 15.51,
+      "peticiones_http": 56
+    },
+    {
+      "puerto": "Pomalaa",
+      "lat": -4.129033050000002,
+      "lon": 121.5893849,
+      "radio_km": 50,
+      "segundos": 22.77,
+      "filas_vias": 1491,
+      "filas_industrias": 2,
+      "poligono_puerto_encontrado": false,
+      "bytes_leidos": 42167350,
+      "mb_leidos": 42.17,
+      "peticiones_http": 97
+    },
+    {
+      "puerto": "Pemba",
+      "lat": -12.966790210000003,
+      "lon": 40.48677495,
+      "radio_km": 50,
+      "segundos": 20.19,
+      "filas_vias": 732,
+      "filas_industrias": 0,
+      "poligono_puerto_encontrado": false,
+      "bytes_leidos": 14867211,
+      "mb_leidos": 14.87,
+      "peticiones_http": 44
+    },
+    {
+      "puerto": "Esmeraldas",
+      "lat": 0.9904562020000033,
+      "lon": -79.65069729,
+      "radio_km": 50,
+      "segundos": 24.73,
+      "filas_vias": 1815,
+      "filas_industrias": 1,
+      "poligono_puerto_encontrado": false,
+      "bytes_leidos": 53896940,
+      "mb_leidos": 53.9,
+      "peticiones_http": 124
+    },
+    {
+      "puerto": "Tg Mani",
+      "lat": 2.150721317000002,
+      "lon": 111.3371532,
+      "radio_km": 50,
+      "segundos": 22.96,
+      "filas_vias": 1698,
+      "filas_industrias": 2,
+      "poligono_puerto_encontrado": false,
+      "bytes_leidos": 37649409,
+      "mb_leidos": 37.65,
+      "peticiones_http": 94
+    },
+    {
+      "puerto": "Limboh",
+      "lat": 4.005847292456197,
+      "lon": 9.129453007654682,
+      "radio_km": 50,
+      "segundos": 25.32,
+      "filas_vias": 2823,
+      "filas_industrias": 4,
+      "poligono_puerto_encontrado": false,
+      "bytes_leidos": 49915009,
+      "mb_leidos": 49.92,
+      "peticiones_http": 167
+    }
+  ],
+  "agregado": {
+    "mb_medio": 119.39,
+    "fraccion_leida_pct": 0.031598,
+    "factor_reduccion": 3165.0
+  }
+}

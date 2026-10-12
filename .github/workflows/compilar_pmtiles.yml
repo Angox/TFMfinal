@@ -1,0 +1,54 @@
+name: "Utilidad: Compilar Mapa Global (PMTiles)"
+on:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  compilar-mapa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    env:
+      PYTHONUNBUFFERED: "1"
+      PMTILES_DIR_TRABAJO: /mnt/pmtiles
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Cargar configuracion central (config.env)
+        run: |
+          grep -vE '^[[:space:]]*(#|$)' config.env | tr -d '\r' > /tmp/config.env
+          cat /tmp/config.env >> "$GITHUB_ENV"
+          sed -n 's/^S3_BUCKET_NAME=/TF_VAR_bucket_datos_nombre=/p' /tmp/config.env >> "$GITHUB_ENV"
+          sed -n 's/^AWS_REGION=/TF_VAR_aws_region=/p' /tmp/config.env >> "$GITHUB_ENV"
+          echo "Configuracion central cargada:"; cat /tmp/config.env
+
+      - name: Configurar AWS
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Instalar Tippecanoe
+        run: |
+          sudo apt-get update && sudo apt-get install -y make g++ libsqlite3-dev zlib1g-dev
+          git clone https://github.com/felt/tippecanoe.git
+          cd tippecanoe && make -j && sudo make install
+      - name: Configurar Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.10'
+
+      - name: Instalar dependencias Python
+        run: pip install -r etl/requirements-ci.txt
+
+      - name: Preparar el disco de trabajo
+        run: |
+          sudo mkdir -p "$PMTILES_DIR_TRABAJO"
+          sudo chown "$(id -u):$(id -g)" "$PMTILES_DIR_TRABAJO"
+          df -h / /mnt
+
+      - name: Ejecutar Compilación
+        run: python etl/compilar_mapa_global.py
+
+      - name: Espacio en disco al terminar
+        if: always()
+        run: df -h / /mnt

@@ -1,0 +1,86 @@
+name: "Datos: cobertura del dataset diario del FMI"
+
+on:
+  workflow_dispatch:
+    inputs:
+      ambito:
+        description: "Qué medir"
+        required: true
+        default: "catalogo"
+        type: choice
+        options:
+          - catalogo
+          - muestra
+  workflow_call:
+    inputs:
+      ambito:
+        required: false
+        default: "catalogo"
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  cobertura:
+    name: "Cobertura de Daily_Ports_Data"
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v7
+
+      - name: Cargar configuración central (config.env)
+        run: |
+          grep -vE '^[[:space:]]*(#|$)' config.env | tr -d '\r' > /tmp/config.env
+          cat /tmp/config.env >> "$GITHUB_ENV"
+
+      - name: Configurar credenciales de AWS
+        if: inputs.ambito == 'muestra'
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Configurar Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.10'
+
+      - name: Instalar dependencias
+        run: pip install -r etl/requirements-ci.txt
+
+      - name: Medir cobertura
+        run: |
+          if [ "${{ inputs.ambito }}" = "catalogo" ]; then
+            python etl/comprobar_cobertura.py --catalogo --salida docs/cobertura
+          else
+            python etl/comprobar_cobertura.py --salida docs/cobertura
+          fi
+
+      - name: Publicar el informe en el repositorio
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/cobertura
+          if git diff --cached --quiet; then
+            echo "Sin cambios en el informe."
+          else
+            git commit -m "docs: actualizar informe de cobertura del FMI [skip ci]"
+            for intento in 1 2 3; do
+              if git pull --rebase --autostash origin "$GITHUB_REF_NAME" && git push; then
+                echo "Informe publicado."
+                break
+              fi
+              echo "Push rechazado, reintento $intento de 3..."
+              sleep 7
+            done
+          fi
+
+      - name: Subir el informe como artefacto
+        uses: actions/upload-artifact@v7
+        with:
+          name: informe-cobertura
+          path: docs/cobertura/
